@@ -1,1 +1,332 @@
-d
+import logging
+import sys
+import os
+import common.constants as constants
+from datetime import timedelta, date, datetime
+from py4j.java_gateway import java_import
+from pyspark.sql import SparkSession, functions as F
+from pyspark.sql.functions import (to_date, expr, round, col, when, length, substring, trim,concat, lit, create_map, to_timestamp, sum, broadcast,coalesce, current_timestamp
+)
+from common.check_monthend import check_MonthEnd
+from common.logger import setup_logger
+from common.dateUtil import get_etl_date
+from common.fileUtil import paths_for_read, get_hdfs_base
+from common.createSpark import create_spark_session
+from common.processRun import get_run_id
+from common.properties import get_oracle_properties
+from common.log_etl_modified import log_etl
+from pyspark.sql.types import DecimalType
+from common.processRun import get_process_run_id
+from common.fileUtil import tables_to_read
+
+
+def run_glif_migration(spark, dt, run_id, process_run_id):
+    """
+    Migrates GLIF data from Oracle to Delta Lake for the given date.
+
+    Returns:
+        True  — migration successful, count verified
+        False — no Oracle data, transformation failed, write failed, or count mismatch
+    Raises:
+        Exception — for truly unexpected failures (propagated to precheck)
+
+    IMPORTANT: log_etl status=1 (Oracle INSERT) is NOT called here.
+    It is called ONCE in run_pipeline_precheck BEFORE the migration loop
+    to avoid PK violations on PROCESS_RUN_STAGE table.
+    Only status=2/3 (Kafka UPDATE — no Oracle insert) are called here.
+    """
+    target_date       = dt
+    target_date_str   = target_date.strftime("%d-%m-%y")
+    required_date_str = dt.strftime("%Y-%m-%d")
+
+    logger = setup_logger("GLIF_MIGRATION", target_date_str, run_id)
+    logger.info(f"Starting GLIF migration for DATE = {dt}")
+    logger.info(f"GLIF migration required_date_str: {required_date_str}")
+    oracle_tables = tables_to_read("glif")
+
+    
+    BALANCE = oracle_tables["BALANCE"]
+    
+
+    try:
+       
+        query = f"""
+        (
+            SELECT
+                BRANCH_CODE || CURRENCY || CGL AS GLCC,
+                BALANCE                        AS CLOSING_BALANCE,
+                INR_BALANCE,
+                BALANCE_DATE
+            FROM {BALANCE}
+            WHERE BALANCE_DATE >= DATE '{required_date_str}'
+            AND   BALANCE_DATE <  DATE '{required_date_str}' + 1
+        ) t
+        """
+
+        oracle_props = get_oracle_properties()
+        cfg          = paths_for_read("glif", target_date, target_date_str)
+        HDFS_PATH    = cfg["PRECHECK_DATALAKE_PATH"]
+
+        logger.info(f"GLIF delta lake path: {HDFS_PATH}")
+
+        try:
+            df_source = (
+                spark.read.format("jdbc")
+                .option("url",       oracle_props["url"])
+                .option("user",      oracle_props["user"])
+                .option("password",  oracle_props["password"])
+                .option("driver",    oracle_props["driver"])
+                .option("dbtable",   query)
+                .option("fetchsize", "20000")
+                .load()
+            )
+        except Exception:
+            logger.error("Oracle read failed", exc_info=True)
+            # status=3 → Kafka UPDATE only — safe inside loop
+            log_etl(spark, process_run_id, "glif_migration", 3,
+                    f"Oracle read failed for date {required_date_str}")
+            return False
+
+  
+        oracle_count = df_source.count()
+        if oracle_count == 0:
+            logger.error(f"No GLIF data in Oracle for {required_date_str}")
+            # status=3 → Kafka UPDATE only — safe inside loop
+            log_etl(spark, process_run_id, "glif_migration", 3,
+                    f"No data in Oracle for GLIF date {required_date_str}")
+            return False
+
+        logger.info(f"Oracle record count: {oracle_count}")
+
+   
+        try:
+            df_final = df_source.select(
+                F.col("GLCC").cast("string"),
+                F.col("CLOSING_BALANCE").cast(DecimalType(25, 4)), 
+                F.col("INR_BALANCE").cast(DecimalType(25, 4)),
+                F.col("BALANCE_DATE").cast("date")
+            )
+        except Exception:
+            logger.error("Schema transformation failed", exc_info=True)
+            # status=3 → Kafka UPDATE only — safe inside loop
+            log_etl(spark, process_run_id, "glif_migration", 3,
+                    f"Schema transformation failed for date {required_date_str}")
+            return False
+
+        try:
+            df_final.write \
+                .format("delta") \
+                .mode("overwrite") \
+                .option("replaceWhere", f"BALANCE_DATE = DATE '{required_date_str}'") \
+                .option("mergeSchema", "true") \
+                .save(HDFS_PATH)
+        except Exception:
+            logger.error("Delta write failed", exc_info=True)
+            # status=3 → Kafka UPDATE only — safe inside loop
+            log_etl(spark, process_run_id, "glif_migration", 3,
+                    f"Delta write failed for date {required_date_str}")
+            return False
+
+   
+        delta_count = (
+            spark.read.format("delta")
+            .load(HDFS_PATH)
+            .filter(F.col("BALANCE_DATE") == F.lit(target_date))
+            .count()
+        )
+
+        logger.info(f"Delta count for {required_date_str}: {delta_count}")
+
+        if oracle_count != delta_count:
+            logger.error(
+                f"COUNT MISMATCH | DATE={required_date_str} | "
+                f"ORACLE={oracle_count} | DELTA={delta_count}"
+            )
+            # status=3 → Kafka UPDATE only — safe inside loop
+            log_etl(spark, process_run_id, "glif_migration", 3,
+                    f"Count mismatch Oracle={oracle_count} Delta={delta_count} "
+                    f"for date {required_date_str}")
+            return False
+
+        logger.info(f"GLIF Migration completed successfully for {required_date_str}")
+        # status=2 → Kafka UPDATE only — safe inside loop
+        log_etl(spark, process_run_id, "glif_migration", 2,
+                f"GLIF Migration Completed for date {required_date_str}")
+        return True  
+
+    except Exception:
+        logger.error("GLIF Migration failed unexpectedly", exc_info=True)
+        # status=3 → Kafka UPDATE only — safe inside loop
+        log_etl(spark, process_run_id, "glif_migration", 3,
+                f"Unexpected error in GLIF Migration for date {required_date_str}")
+        raise
+
+
+
+
+------------------------------------------------------------------#
+#!/usr/bin/env python3
+
+from pyspark.sql import SparkSession, functions as F, types as T
+from pyspark.sql.types import DecimalType
+import traceback
+import sys
+from datetime import date, timedelta
+from common.logger import setup_logger
+from common.properties import get_oracle_properties
+from common.fileUtil import paths_for_read
+from common.log_etl_modified import log_etl
+from common.fileUtil import tables_to_read
+
+def run_difference_migration(spark, dt, run_id, process_run_id):
+    """
+    Migrates DIFFERENCE data from Oracle to Delta Lake for the given date.
+
+    Returns:
+        True  — migration successful, count verified
+        False — no Oracle data, transformation failed, write failed, or count mismatch
+    Raises:
+        Exception — for truly unexpected failures (propagated to precheck)
+
+    IMPORTANT: log_etl status=1 (Oracle INSERT) is NOT called here.
+    It is called ONCE in run_pipeline_precheck BEFORE the migration loop
+    to avoid PK violations on PROCESS_RUN_STAGE table.
+    Only status=2/3 (Kafka UPDATE — no Oracle insert) are called here.
+    """
+    target_date       = dt
+    target_date_str   = target_date.strftime("%d-%m-%y")
+    required_date_str = dt.strftime("%Y-%m-%d")
+
+    logger = setup_logger(
+        "difference_migration",
+        target_date.strftime("%Y-%m-%d"),
+        run_id
+    )
+    TABLES = tables_to_read("difference")
+    DIFFERENCE = TABLES["DIFFERENCE"]
+    
+
+    logger.info(f"Starting difference migration for DATE = {dt}")
+    logger.info(f"Required date for difference migration: {required_date_str}")
+
+    try:
+
+        query = f"""
+        (
+            SELECT
+                BRANCH_CODE || CURRENCY || CGL AS GLCC,
+                DIFFERENCE_AMOUNT,
+                FIRST_ERROR_DATE,
+                RECON_RUN_DATE
+            FROM {DIFFERENCE}
+            WHERE RECON_RUN_DATE >= DATE '{required_date_str}'
+            AND   RECON_RUN_DATE <  DATE '{required_date_str}' + 1
+        ) t
+        """
+
+        oracle_props = get_oracle_properties()
+
+        cfg       = paths_for_read("difference", target_date, target_date_str)
+        HDFS_PATH = cfg["PRECHECK_DATALAKE_PATH"]
+        logger.info(f"Difference delta lake path: {HDFS_PATH}")
+
+       
+        try:
+            df_source = (
+                spark.read.format("jdbc")
+                .option("url",       oracle_props["url"])
+                .option("user",      oracle_props["user"])
+                .option("password",  oracle_props["password"])
+                .option("driver",    oracle_props["driver"])
+                .option("dbtable",   query)
+                .option("fetchsize", "20000")
+                .load()
+            )
+        except Exception:
+            logger.error("Oracle read failed", exc_info=True)
+            # status=3 → Kafka UPDATE only — safe inside loop
+            log_etl(spark, process_run_id, "difference_migration", 3,
+                    f"Oracle read failed for date {required_date_str}")
+            return False
+
+        
+        oracle_count = df_source.count()  
+        if oracle_count == 0:
+            logger.error(f"No DIFFERENCE data found in Oracle for {required_date_str}")
+            # status=3 → Kafka UPDATE only — safe inside loop
+            log_etl(spark, process_run_id, "difference_migration", 3,
+                    f"No data in Oracle for DIFFERENCE date {required_date_str}")
+            return False
+
+        logger.info(f"Oracle record count: {oracle_count}") 
+
+        try:
+            df_final = df_source.select(
+                F.col("GLCC").cast("string"),
+                F.col("DIFFERENCE_AMOUNT").cast(DecimalType(25, 4)),
+                F.col("FIRST_ERROR_DATE").cast("date"),
+                F.col("RECON_RUN_DATE").cast("date").alias("RECON_DATE")
+            )
+        except Exception:
+            logger.error("Schema transformation failed", exc_info=True)
+            # status=3 → Kafka UPDATE only — safe inside loop
+            log_etl(spark, process_run_id, "difference_migration", 3,f"Schema transformation failed for date {required_date_str}")
+            return False
+
+        try:
+            df_final.write \
+                .format("delta") \
+                .mode("overwrite") \
+                .option("replaceWhere", f"RECON_DATE = DATE '{required_date_str}'") \
+                .option("mergeSchema", "true") \
+                .save(HDFS_PATH)
+        except Exception:
+            logger.error("Delta write failed", exc_info=True)
+            # status=3 → Kafka UPDATE only — safe inside loop
+            log_etl(spark, process_run_id, "difference_migration", 3,f"Delta write failed for date {required_date_str}")
+            return False
+
+        delta_count = (
+            spark.read.format("delta")
+            .load(HDFS_PATH)
+            .filter(F.col("RECON_DATE") == F.lit(target_date))
+            .count()
+        )
+
+        logger.info(f"Delta count for {required_date_str}: {delta_count}")
+
+        if oracle_count != delta_count:
+            logger.error(
+                f"COUNT MISMATCH | DATE={required_date_str} | "
+                f"ORACLE={oracle_count} | DELTA={delta_count}"
+            )
+            # status=3 → Kafka UPDATE only — safe inside loop
+            log_etl(spark, process_run_id, "difference_migration", 3,f"Count mismatch Oracle={oracle_count} Delta={delta_count} "
+                    f"for date {required_date_str}")
+            return False
+
+        logger.info(f"Difference migration completed successfully for {required_date_str}")
+        # status=2 → Kafka UPDATE only — safe inside loop
+        log_etl(spark, process_run_id, "difference_migration", 2,f"Difference Migration Completed for date {required_date_str}")
+        return True 
+
+    except Exception:
+        logger.error("Difference migration failed unexpectedly", exc_info=True)
+        # status=3 → Kafka UPDATE only — safe inside loop
+        log_etl(spark, process_run_id, "difference_migration", 3,f"Unexpected error in Difference Migration for date {required_date_str}")
+        raise
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
