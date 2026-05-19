@@ -528,711 +528,169 @@ if __name__ == "__main__":
     main(sys.argv)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# import logging
-# import sys
-# import os
-# import common.constants as constants
-# from datetime import timedelta, date, datetime
-# from py4j.java_gateway import java_import
-# from pyspark.sql import SparkSession, functions as F
-# from pyspark.sql.functions import date_format
-# from pyspark.sql.functions import (to_date, expr, round, col, when, length, substring,trim, concat, lit, create_map, to_timestamp, sum,broadcast, coalesce, current_timestamp)
-# from common.glif_balance_migration import run_glif_migration
-# from common.difference__migration import run_difference_migration
-# from common.check_monthend import check_MonthEnd
-# from common.logger import setup_logger
-# from common.dateUtil import get_etl_date
-# from common.fileUtil import paths_for_read, get_hdfs_base
-# from common.createSpark import create_spark_session
-# from common.processRun import get_run_id
-# from common.properties import get_oracle_properties
-# from common.log_etl_modified import log_etl
-# from common.processRun import get_process_run_id
-
-# # =============================================================================
-# # create_manifest
-# # =============================================================================
-# def create_manifest(spark, filename, manifest_base, etl_date, content):
-#     """
-#     Writes a manifest file to HDFS under manifest_base/etl_date_str/filename.
-#     Raises RuntimeError if the file is not confirmed written.
-#     """
-#     # Format date
-#     if isinstance(etl_date, str):
-#         etl_date_str = etl_date
-#     else:
-#         etl_date_str = etl_date.strftime("%Y%m%d")
-
-#     final_manifest_dir = f"{manifest_base.rstrip('/')}/{etl_date_str}"
-
-#     java_import(spark._jvm, "org.apache.hadoop.fs.FileSystem")
-#     java_import(spark._jvm, "org.apache.hadoop.fs.Path")
-
-#     fs  = spark._jvm.FileSystem.get(spark._jsc.hadoopConfiguration())
-#     Path = spark._jvm.Path
-
-#     hdfs_dir = Path(final_manifest_dir)
-
-#     if not fs.exists(hdfs_dir):
-#         fs.mkdirs(hdfs_dir)
-
-#     # Write manifest locally then copy to HDFS
-#     with open(filename, "w") as f:
-#         f.write(content)
-
-#     dest_path = Path(f"{final_manifest_dir}/{filename}")
-#     fs.copyFromLocalFile(False, True, Path(filename), dest_path)
-
-#     if not fs.exists(dest_path):
-#         raise RuntimeError(f"Manifest NOT written to HDFS: {dest_path}")
-
-#     print(f"Manifest successfully created at: {dest_path}")
-
-
-# # =============================================================================
-# # delta_table_exists
-# # =============================================================================
-# def delta_table_exists(spark, path):
-#     """Returns True if a Delta table exists at the given HDFS path."""
-#     java_import(spark._jvm, "org.apache.hadoop.fs.Path")
-#     java_import(spark._jvm, "org.apache.hadoop.fs.FileSystem")
-
-#     fs            = spark._jvm.FileSystem.get(spark._jsc.hadoopConfiguration())
-#     delta_log_path = spark._jvm.Path(f"{path}/_delta_log")
-#     return fs.exists(delta_log_path)
-
-# # =============================================================================
-# # run_pipeline_precheck
-# # =============================================================================
-# def run_pipeline_precheck(pipeline, spark, etl_date, run_id, process_run_id):
-
-#     pipeline = pipeline.lower()
-
-#     logger = setup_logger(
-#         f"{pipeline.upper()}_PRECHECK",
-#         etl_date.strftime("%Y-%m-%d"),
-#         run_id
-#     )
-
-   
-#     if pipeline == "glif":
-#         # status=1 → Oracle INSERT
-#         log_etl(spark, process_run_id, "precheck_started_glif", 1, "Glif Precheck Pipeline Started")
-#         required_date = [etl_date - timedelta(days=1), etl_date]   # [T-1, T]
-
-#     elif pipeline == "difference":
-#         # status=1 → Oracle INSERT
-#         log_etl(spark, process_run_id, "precheck_started_difference", 1, "Difference Precheck Pipeline Started")
-#         required_date = [etl_date - timedelta(days=1)]              # [T-1]
-
-#     else:
-#         raise ValueError(f"Unknown pipeline: {pipeline}")
-
-#     required_date_str = [d.strftime("%d-%m-%Y") for d in required_date]
-
-
-#     required_date_str_yyyy = [d.strftime("%Y-%m-%d") for d in required_date]
-
-#     logger.info(f"PIPELINE      = {pipeline.upper()}")
-#     logger.info(f"REQUIRED_DATE = {required_date_str}")
-
-#     cfg           = paths_for_read(pipeline, etl_date, required_date_str)
-#     datalake_path = cfg["PRECHECK_DATALAKE_PATH"]
-#     manifest_base = cfg["MANIFEST_BASE_PATH"]
-
-#     manifest_file = (
-#         f"{pipeline.upper()}_precheck_successfull"
-#         f"_{run_id}"
-#         f"_Manifest.txt"
-#     )
-
-#     logger.info(f"DATALAKE_PATH = {datalake_path}")
-
-#     try:
-#         if not delta_table_exists(spark, datalake_path):
-#             logger.info("Delta table not found — all dates require migration.")
-#             missing_dates = required_date
-
-#         else:
-#             if pipeline == "glif":
-#                 log_etl(spark, process_run_id, "glif_datalake_reading", 1, "GLIF datalake reading started")
-#                 date_column = "BALANCE_DATE"
-#             else:
-#                 log_etl(spark, process_run_id, "difference_datalake_reading", 1, "DIFFERENCE datalake reading started")
-#                 date_column = "RECON_DATE"
-
-#             delta_df = spark.read.format("delta").load(datalake_path)
-
-#             # Collect which required dates are already in delta
-#             # existing_dates = set(
-#             #     delta_df
-#             #     # .filter(to_date(col(date_column)).isin(required_date))
-#             #     .filter(date_format(col(date_column),"yyyy-MM-dd").isin(required_date_str))
-#             #     .select(to_date(col(date_column)).alias("dt"))
-#             #     .distinct()
-#             #     .rdd.flatMap(lambda x: x)
-#             #     .collect()
-#             # )
-            
-#             existing_date_strings = set(
-#                 delta_df
-#                 .filter(date_format(col(date_column), "yyyy-MM-dd").isin(required_date_str_yyyy)       #  string list
-#                 )
-#                 .select(date_format(col(date_column), "yyyy-MM-dd").alias("dt")  # collect as string
-#                 )
-#                 .distinct()
-#                 .rdd.flatMap(lambda x: x)
-#                 .collect()
-#             )
-
-#             missing_dates = [
-#                 d for d in required_date
-#                 if d.strftime("%Y-%m-%d") not in existing_date_strings
-#             ]
-
-#             logger.info(f"EXISTING_DATES = {list(existing_date_strings)}")
-#             logger.info(f"MISSING_DATES  = {[d.strftime('%d-%m-%Y') for d in missing_dates]}")
-
-#     except Exception:
-#         logger.error("Failed to read Delta table", exc_info=True)
-#         if pipeline == "glif":
-#             logger.info("Error reading GLIF datalake")
-#             log_etl(spark, process_run_id, "glif_datalake_reading", 3, "Error reading GLIF datalake")
-            
-#         else:
-#             logger.info("Error reading DIFFERENCE datalake")
-#             log_etl(spark, process_run_id, "difference_datalake_reading", 3, "Error reading DIFFERENCE datalake")
-#         raise
-
-#     # ------------------------------------------------------------------
-#     # CASE A — All dates already present → write manifest immediately
-#     # ------------------------------------------------------------------
-#     if len(missing_dates) == 0:
-
-#         if pipeline == "glif":
-#             log_etl(spark, process_run_id, "glif_datalake_reading", 2, "Data present in GLIF datalake for all required dates")
-#             logger.info("Data present in GLIF datalake for all required dates")
-
-#             create_manifest(
-#                 spark, manifest_file, manifest_base, etl_date,
-#                 f"GLIF | DATA_ALREADY_PRESENT | DATE={required_date_str}"
-#             )
-#             logger.info("GLIF STATUS = DATA_ALREADY_PRESENT")
-#             log_etl(spark, process_run_id, "precheck_started_glif", 2, "Glif Precheck Pipeline Completed — Data Already Present")
-
-#         elif pipeline == "difference":
-#             log_etl(spark, process_run_id, "difference_datalake_reading", 2, "Data present in DIFFERENCE datalake for all required dates")
-#             logger.info("Data present in DIFFERENCE datalake for all required dates")
-
-#             create_manifest(
-#                 spark, manifest_file, manifest_base, etl_date,
-#                 f"DIFFERENCE | DATA_ALREADY_PRESENT | DATE={required_date_str}"
-#             )
-#             logger.info("DIFFERENCE STATUS = DATA_ALREADY_PRESENT")
-#             log_etl(spark, process_run_id, "precheck_started_difference", 2, "Difference Precheck Pipeline Completed — Data Already Present")
-
-#         return True
-
-#     # ------------------------------------------------------------------
-#     # CASE B — Some / all dates missing → migrate then verify
-#     # ------------------------------------------------------------------
-#     try:
-#         failed_count = 0
-
-#         # ---- GLIF migration ----
-#         if pipeline == "glif":
-#             logger.info("GLIF DATA NOT PRESENT FOR SOME/ALL DATES | MIGRATION REQUIRED")
-#             log_etl(spark, process_run_id, "glif_datalake_reading", 3, "GLIF Data not present — migration required")
-
-
-#             log_etl(spark, process_run_id, "glif_migration", 1,"GLIF Migration Started")
-#             for dt in missing_dates:
-#                 logger.info(f"Running GLIF migration for {dt.strftime('%d-%m-%Y')}")
-
-#                 # success = run_glif_migration(spark, dt, run_id)
-#                 success=run_glif_migration(spark, dt, run_id, process_run_id)
-
-#                 if not success:
-#                     failed_count += 1
-#                     logger.error(f"GLIF | No Oracle data for date: {dt.strftime('%d-%m-%Y')}")
-#                     log_etl(spark, process_run_id, "glif_migration", 3, f"No Oracle data for GLIF date {dt.strftime('%d-%m-%Y')}")
-#                 else:
-#                     logger.info(f"GLIF | Migration successful for {dt.strftime('%d-%m-%Y')}")
-
-#             logger.info(f"GLIF Migration loop done | failed_count = {failed_count}")
-
-#             # Write manifest ONLY if all dates migrated successfully
-#             if failed_count > 0:
-#                 log_etl(spark, process_run_id, "glif_migration", 3,f"GLIF Migration incomplete — {failed_count} date(s) had no Oracle data")
-#                 raise RuntimeError(
-#                     f"GLIF | {failed_count} date(s) missing in Oracle — manifest NOT written"
-#                 )
-
-#             log_etl(spark, process_run_id, "glif_migration", 2, "GLIF Migration Completed")
-#             logger.info("GLIF Migration Completed")
-
-#             create_manifest(
-#                 spark, manifest_file, manifest_base, etl_date,
-#                 f"GLIF | DATA_MIGRATED | DATE={required_date_str}"
-#             )
-#             logger.info("GLIF STATUS = DATA_MIGRATED")
-#             log_etl(spark, process_run_id, "precheck_started_glif", 2, "Glif Precheck Pipeline Completed — Data Migrated")
-
-#         # ---- DIFFERENCE migration ----
-#         elif pipeline == "difference":
-#             logger.info("DIFFERENCE DATA NOT PRESENT | MIGRATION REQUIRED")
-#             log_etl(spark, process_run_id, "difference_datalake_reading", 3, "DIFFERENCE Data not present — migration required")
-
-#             for dt in missing_dates:
-#                 logger.info(f"Running DIFFERENCE migration for {dt.strftime('%d-%m-%Y')}")
-
-#                 success = run_difference_migration(spark, dt, run_id,process_run_id)
-
-#                 if not success:
-#                     failed_count += 1
-#                     logger.error(f"DIFFERENCE | No Oracle data for date: {dt.strftime('%d-%m-%Y')}")
-#                     log_etl(spark, process_run_id, "difference_migration", 3,f"No Oracle data for DIFFERENCE date {dt.strftime('%d-%m-%Y')}")
-#                 else:
-#                     logger.info(f"DIFFERENCE | Migration successful for {dt.strftime('%d-%m-%Y')}")
-
-#             logger.info(f"DIFFERENCE Migration loop done | failed_count = {failed_count}")
-
-#             # Write manifest ONLY if all dates migrated successfully
-#             if failed_count > 0:
-#                 log_etl(spark, process_run_id, "difference_migration", 3,f"DIFFERENCE Migration incomplete — {failed_count} date(s) had no Oracle data")
-#                 raise RuntimeError(
-#                     f"DIFFERENCE | {failed_count} date(s) missing in Oracle — manifest NOT written"
-#                 )
-
-#             log_etl(spark, process_run_id, "difference_migration", 2, "DIFFERENCE Migration Completed")
-#             logger.info("DIFFERENCE Migration Completed")
-
-#             create_manifest(
-#                 spark, manifest_file, manifest_base, etl_date,
-#                 f"DIFFERENCE | DATA_MIGRATED | DATE={required_date_str}"
-#             )
-#             logger.info("DIFFERENCE STATUS = DATA_MIGRATED")
-#             log_etl(spark, process_run_id, "precheck_started_difference", 2, "Difference Precheck Pipeline Completed — Data Migrated")
-
-#     except Exception:
-#         logger.error("MIGRATION FAILED", exc_info=True)
-#         if pipeline == "glif":
-#             logger.info("Error in GLIF migration")
-#             log_etl(spark, process_run_id, "glif_migration", 3, "Error in GLIF migration")
-#         else:
-#             logger.info("Error in DIFFERENCE migration")
-#             log_etl(spark, process_run_id, "difference_migration", 3, "Error in DIFFERENCE migration")
-#         raise  #  Manifest NOT written on any failure
-
-
-# # =============================================================================
-# # run_currency_precheck_monthend
-# # =============================================================================
-# def run_currency_precheck_monthend(spark, etl_date, run_id, process_run_id):
-# # def run_currency_precheck_monthend(spark, etl_date, run_id):
-#     """
-#     Validates that all FLAG=1 currencies in FINCORE.CURRENCY_MASTER
-#     have a RATE_DATE >= ETL_DATE (required for month-end runs).
-#     Returns True if check passes, False otherwise.
-#     Raises on unexpected exceptions.
-#     """
-#     logger = setup_logger(
-#         "CURRENCY_PRECHECK",
-#         etl_date.strftime("%Y-%m-%d"),
-#         run_id
-#     )
-
-#     try:
-#         log_etl(spark, process_run_id, "precheck_started_currency_monthend", 1, "Currency Precheck Pipeline Started")
-
-#         oracle = get_oracle_properties()
-
-#         query = f"""
-#         (
-#             SELECT COUNT(*) AS MISSING_CNT
-#             FROM FINCORE.CURRENCY_MASTER
-#             WHERE FLAG = 1
-#             AND (RATE_DATE IS NULL OR RATE_DATE < DATE '{etl_date.strftime("%Y-%m-%d")}')
-#         )
-#         """
-
-#         df = (
-#             spark.read.format("jdbc")
-#             .option("url",      oracle["url"])
-#             .option("user",     oracle["user"])
-#             .option("password", oracle["password"])
-#             .option("driver",   oracle["driver"])
-#             .option("dbtable",  query)
-#             .load()
-#         )
-
-#         missing_cnt = df.collect()[0]["MISSING_CNT"]
-
-#         if missing_cnt > 0:
-#             logger.error(
-#                 f"CURRENCY PRECHECK FAILED: {missing_cnt} currencies "
-#                 f"missing RATE_DATE for ETL_DATE={etl_date}"
-#             )
-#             log_etl(spark, process_run_id, "precheck_started_currency_monthend", 3, "Currency Precheck Failed")
-#             return False
-
-#         logger.info("CURRENCY PRECHECK PASSED")
-#         log_etl(spark, process_run_id, "precheck_started_currency_monthend", 2, "Currency Precheck Passed")
-#         return True
-
-#     except Exception:
-#         logger.error("CURRENCY PRECHECK ERROR", exc_info=True)
-#         log_etl(spark, process_run_id, "precheck_started_currency_monthend", 3, "Error in Currency Precheck Pipeline")
-#         raise   
-
-
-# # =============================================================================
-# # main
-# # =============================================================================
-# def main(args):
-
-#     HDFS_BASE  = get_hdfs_base()
-#     spark      = create_spark_session("DATALAKE_PRECHECK", HDFS_BASE)
-#     spark.conf.set("spark.hadoop.fs.defaultFS", HDFS_BASE)
-
-#     PROCESS_ID= getattr(constants,"PRECHECK_PIPLINE_ID",8)
+from common.properties import get_jdbc_url
+from common.properties import get_oracle_properties
+
+from common.properties import get_hdfs_base
+from datetime import datetime
+HDFS_BASE = get_hdfs_base()
+
+# TYPE For  GLIF -> glif for CBS -> bancs24
+def files_to_read(spark,type):
+    jdbc_url= get_jdbc_url()
+    oracle_properties = get_oracle_properties()
+    query = f"""
+    (
+    SELECT FILE_PATTERN, STREAM
+    FROM FILE_TYPE_MASTER
+    WHERE INCLUDE = 'Y' and type = '{type}'
+    ) t
+    """
+    df = spark.read.jdbc(jdbc_url, query, properties=oracle_properties)
+    if type.lower() == "glif":    
+        stream_files = df.filter(df.STREAM == 'Y').select("FILE_PATTERN").rdd.flatMap(lambda x: x).collect()
+        non_stream_files = df.filter(df.STREAM == 'N').select("FILE_PATTERN").rdd.flatMap(lambda x: x).collect()
+        return {"stream_files" :stream_files,"non_stream_files":non_stream_files}
+    elif type.lower() == "bancs24":
+        files = df.select("FILE_PATTERN").rdd.flatMap(lambda x: x).collect()
+        return files
+    else :
+        return []
     
-#     etl_date = get_etl_date(spark)
-#     process_run_id = sys.argv[1] if len(sys.argv) > 1 else get_process_run_id(spark,PROCESS_ID,etl_date.strftime("%Y-%m-%d"))
-#     pipeline_run_id = get_run_id(spark,etl_date.strftime("%Y-%m-%d"),PROCESS_ID)
-#     # pipeline_run_id=2
-#     master_logger = setup_logger(
-#         "PRECHECK_MASTER",
-#         etl_date.strftime("%Y-%m-%d"),
-#         pipeline_run_id
-#     )
+    
+def paths_for_read(type,date,today_str):
+    today_str=today_str
+    HDFS_BASE = get_hdfs_base()
+    manifest_base=f"{HDFS_BASE}/ManifestFolder"
+    
+    if type.lower() == "glif":        
+        return{
+        "HDFS_BASE" : HDFS_BASE,
+        "HDFS_PATH" : f"{HDFS_BASE}",
+        "GL_DATALAKE_PATH" : f"{HDFS_BASE}/data-lake/Fincore/Data-Lake/GLIF",
+        "manifest_filename" : f"{type}_{today_str}_glif_balance_manifest.txt",
+        "spark_stream_path" : f"{HDFS_BASE}/DATA-LAKE/MANIFEST-FILES",
+        "PRECHECK_DATALAKE_PATH":f"{HDFS_BASE}/data-lake/Fincore/Data-Lake/GLIF",
+        #"PRECHECK_DATALAKE_PATH":f"{HDFS_BASE}/Precheck/Datalake/GLIF",
+        "MANIFEST_BASE_PATH":manifest_base, 
+        }
+    if type.lower() == "bancs24":
+        return{
+        "HDFS_BASE" : HDFS_BASE,
+        "HDFS_PATH" : f"{HDFS_BASE}/CBS-FILES/31-12-2025/BANCS24",
+        "CBS_BALANCE_DATALAKE_PATH" : f"{HDFS_BASE}/data-lake/Fincore/Data-Lake/BANCS24",
+        "manifest_filename" : f"{type}_{today_str}_cbs_balance_manifest.txt",
+        "spark_stream_path" : f"{HDFS_BASE}/DATA-LAKE/MANIFEST-FILES/"
+        }
+    if type.lower() == "cbs":
+        return{
+        "HDFS_BASE" : HDFS_BASE,
+        "HDFS_PATH" : f"{HDFS_BASE}/CBS-FILES/31-12-2025/BANCS24",
+        "CBS_BALANCE_DATALAKE_PATH" : f"{HDFS_BASE}/data-lake/Fincore/Data-Lake/BANCS24",
+        "manifest_filename" : f"{type}_{today_str}_cbs_balance_manifest.txt",
+        "spark_stream_path" : f"{HDFS_BASE}/DATA-LAKE/MANIFEST-FILES/",
+        "MANIFEST_BASE_PATH":manifest_base, 
+        }
+    if type.lower() == "difference":        
+        return{
+        "DIFFERENCE_DATALAKE_PATH" : f"{HDFS_BASE}/data-lake/Fincore/Data-Lake/DIFFERENCE_DATALAKE",
+        "CBS_DATALAKE_PATH" : f"{HDFS_BASE}/data-lake/Fincore/Data-Lake/BANCS24",
+        "GL_DATALAKE_PATH" : f"{HDFS_BASE}/data-lake/Fincore/Data-Lake/GLIF",
+        "PRECHECK_DATALAKE_PATH":f"{HDFS_BASE}/data-lake/Fincore/Data-Lake/DIFFERENCE_DATALAKE",
+        #"PRECHECK_DATALAKE_PATH":f"{HDFS_BASE}/Precheck/Datalake/DIFFERENCE",
+        "REPORTS":f"{HDFS_BASE}/reports/diffrencereport",
+        "MANIFEST_BASE_PATH":manifest_base,
+        }
+    if type.lower() == "controll":   
+        clean_date = today_str.replace("-", "")
+        formatedDate = datetime.strptime(clean_date, '%Y%m%d').strftime('%d-%m-%Y')     
+        return{
+        "HDFS_BASE" : HDFS_BASE,     
+        "HDFS_PATH" : f"{HDFS_BASE}/CONTROL/{formatedDate}",
+        "manifest_filename" : f"{type}_{today_str}_controll_manifest.txt",
+        "spark_stream_path" : f"{HDFS_BASE}/DATA-LAKE/MANIFEST-FILES",
+        "checkpt": f"{HDFS_BASE}/checkpoint/{today_str}/controll-chk/checkpoint",
+        }
+    if type.lower() == "gliftotalfiles": 
+        clean_date = today_str.replace("-", "")
+        formatedDate = datetime.strptime(clean_date, '%Y%m%d').strftime('%d-%m-%Y')       
+        return{
+        "HDFS_BASE" : HDFS_BASE,     
+        "HDFS_PATH" : f"{HDFS_BASE}/CBS-FILES/{formatedDate}/GLIF",
+        "checkpt": f"{HDFS_BASE}/checkpoint/{today_str}/glif-chk/checkpoint",
+        "manifest_filename" : f"{type}_{today_str}_controll_manifest.txt",
+        "spark_stream_path" : f"{HDFS_BASE}/DATA-LAKE/MANIFEST-FILES"
+        }
+    if type.lower() == "cbstotalfiles": 
+        clean_date = today_str.replace("-", "")
+        formatedDate = datetime.strptime(clean_date, '%Y%m%d').strftime('%d-%m-%Y')       
+        return{
+        "HDFS_BASE" : HDFS_BASE,     
+        "HDFS_PATH" : f"{HDFS_BASE}/CBS-FILES/{formatedDate}/BANCS24",
+        "checkpt": f"{HDFS_BASE}/checkpoint/{today_str}/cbs-chk/checkpoint",
+        "manifest_filename" : f"{type}_{today_str}_controll_manifest.txt",
+        "spark_stream_path" : f"{HDFS_BASE}/DATA-LAKE/MANIFEST-FILES"
+        }
+    else:
+        return {}   
 
-#     master_logger.info(f"Precheck ETL Date : {etl_date}")
-#     master_logger.info("===== PRECHECK STARTED =====")
-#     log_etl(spark, process_run_id, "precheck_started", 1, "Precheck Pipeline Started")
+def tables_to_read(type):
+    if(type.lower() == "glif"):
+        return{
+            "TRANSACTIONS" : "GL_TRANSACTIONS",
+            "BALANCE" : "GL_BALANCE",
+            "INVALID" : "GL_INVALID",
+            "CGLS" : "CGL_MASTER",
+            "CURRENCY" : "CURRENCY_MASTER",
+            "BRANCH" : "BRANCH_MASTER",
+            "CIRCLE" : "CIRCLE_MASTER"
+        }
+    if type.lower() == "bancs24":
+        return{
+            "BALANCE" : "CBS_BALANCE"
+        }
+    if type.lower() == "difference":
+        return{
+            "DIFFERENCE" : "DIFFERENCE",
+            "GL_BALANCE" : "GL_BALANCE",
+            "CBS_BALANCE" : "CBS_BALANCE"
+        }
+    if type.lower() == "controll":
+        return{
+            "CONTROLL_FILE_MASTER" : "CONTROLL_FILE_MASTER"
+        }
+        
+def get_delta_path_by_file_type(file_type,etl_date_str):
+    """
+    Returns delta lake path based on FILE TYPE.
+    """
 
-#     # ------------------------------------------------------------------
-#     # Month-end currency check (only on month-end dates)
-#     # ------------------------------------------------------------------
-#     check_monthend = check_MonthEnd()
-#     if check_monthend:
-#         master_logger.info("Month-end detected — running Currency Precheck")
-#         try:
-#             currency_ok = run_currency_precheck_monthend(spark, etl_date, pipeline_run_id, process_run_id)
-#             # currency_ok = run_currency_precheck_monthend(spark, etl_date, pipeline_run_id)
-#             if not currency_ok:
-#                 master_logger.error("Currency Precheck FAILED — aborting pipeline")
-#                 log_etl(spark, process_run_id, "precheck_started", 3, "Aborting — Currency Precheck Failed")
-#                 spark.stop()
-#                 os._exit(1)
-#         except Exception:
-#             master_logger.error("Currency Precheck threw an exception — aborting", exc_info=True)
-#             spark.stop()
-#             os._exit(1)
+    HDFS_BASE = get_hdfs_base()
+    file_type = file_type.upper()
 
-#     # ------------------------------------------------------------------
-#     # GLIF and DIFFERENCE pipeline prechecks
-#     # ------------------------------------------------------------------
-#     failed_pipeline_count = 0
+    if file_type == "GLIF":
+        return f"{HDFS_BASE}/data-lake/bulk-data/{etl_date_str}/GLIF"
 
-#     for pipeline in ["glif", "difference"]:
-#         try:
-#             run_id = get_run_id(spark, etl_date.strftime("%Y-%m-%d"), PROCESS_ID)
-#             run_pipeline_precheck(pipeline, spark, etl_date, run_id, process_run_id)
-#             # run_pipeline_precheck(pipeline, spark, etl_date, run_id)
-#             if pipeline == "glif":
-#                 master_logger.info("GLIF Precheck Pipeline Completed")
-#                 # log_etl(spark, process_run_id, "precheck_started_glif", 2, "Glif Precheck Pipeline Completed")
-#             else:
-#                 master_logger.info("DIFFERENCE Precheck Pipeline Completed")
-#                 # log_etl(spark, process_run_id, "precheck_started_difference", 2, "Difference Precheck Pipeline Completed")
+    elif file_type == "INV":
+        return f"{HDFS_BASE}/data-lake/bulk-data/{etl_date_str}/CBS/INVTOGL"
 
-#         except Exception:
-#             master_logger.error(f"{pipeline.upper()} PRECHECK FAILED", exc_info=True)
-#             failed_pipeline_count += 1
+    elif file_type == "BOR":
+        return f"{HDFS_BASE}/data-lake/bulk-data/{etl_date_str}/CBS/BORTOGL"
 
-#             if pipeline == "glif":
-#                master_logger.info("Error in GLIF Precheck Pipeline")
-#                log_etl(spark, process_run_id, "precheck_started_glif",3, "Error in GLIF Precheck Pipeline")
-#                log_etl(spark, process_run_id, "precheck_started",3, "Error in GLIF Precheck Pipeline")
-#             else:
-#                 master_logger.info("Error in DIFFERENCE Precheck Pipeline")
-#                 log_etl(spark, process_run_id, "precheck_started_difference", 3, "Error in DIFFERENCE Precheck Pipeline")
-#                 log_etl(spark, process_run_id, "precheck_started",3, "Error in DIFFERENCE Precheck Pipeline")
+    elif file_type == "CTA":
+        return f"{HDFS_BASE}/data-lake/bulk-data/{etl_date_str}/CBS/GLCCCTA"
 
-#     # ------------------------------------------------------------------
-#     # Final status
-#     # ------------------------------------------------------------------
-#     master_logger.info(f"===== PRECHECK FINISHED | Failed pipelines = {failed_pipeline_count} =====")
-
-#     if failed_pipeline_count == 0:
-#         log_etl(spark, process_run_id, "precheck_started", 2, "Precheck Pipeline Completed Successfully")
-#         master_logger.info("===== PRECHECK COMPLETED SUCCESSFULLY =====")
-#         spark.stop()
-#     else:
-#         log_etl(spark, process_run_id, "precheck_started", 3, f"Precheck Pipeline Failed — {failed_pipeline_count} pipeline(s) failed")
-#         master_logger.error(f"===== PRECHECK FAILED | {failed_pipeline_count} pipeline(s) failed =====")
-#         spark.stop()
-#         os._exit(1)
-
-
-# # =============================================================================
-# if __name__ == "__main__":
-#     main(sys.argv)
-
-
-
+    elif file_type == "GEN":
+        return f"{HDFS_BASE}/data-lake/bulk-data/{etl_date_str}/CBS/GLCCGEN"
+    
+    elif file_type == "GINV":
+        return f"{HDFS_BASE}/data-lake/bulk-data/{etl_date_str}/CBS/GLCCINV"
+    
+    elif file_type == "RERUNCBS":
+        return f"{HDFS_BASE}/data-lake/bulk-data/{etl_date_str}/CBS"
+    else:
+        raise Exception(f"Unsupported FILE TYPE: {file_type}")
+        
 
 
 
