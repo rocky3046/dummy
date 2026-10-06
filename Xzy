@@ -1,65 +1,233 @@
-WITH base AS (SELECT
-        coalesce(a.cgl, b.cgl) as CGL,
-        a.rpt as NWSA_AVAILABLE,
-        b.rpt as BSA_AVAILABLE,
-        a.HEAD_CODE as nwsa_code,
-        b.head_code as bsa_code
-    FROM (
-        SELECT CGL, 'n' as rpt, max(HEAD_CODE) || '/' || min(HEAD_CODE) as HEAD_CODE
-        FROM rb_parsed_template
-        WHERE run_id IN ('nwsa_report') AND (HEAD_CODE LIKE 'A%' OR HEAD_CODE LIKE 'L%')
-        GROUP BY CGL HAVING count(1) > 1
-        UNION ALL
-        SELECT CGL, 'n' as rpt, max(HEAD_CODE) as HEAD_CODE
-        FROM rb_parsed_template
-        WHERE run_id IN ('nwsa_report') AND (HEAD_CODE LIKE 'A%' OR HEAD_CODE LIKE 'L%')
-        GROUP BY CGL HAVING count(1) = 1
-    ) a
-    FULL OUTER JOIN (
-        SELECT CGL, substr(run_id, 1, 1) rpt, min(HEAD_CODE) as HEAD_CODE
-        FROM rb_parsed_template
-        WHERE run_id IN ('pnl_report', 'ysa_report')
-        GROUP BY substr(run_id, 1, 1), CGL HAVING count(1) = 1
-        UNION ALL
-        SELECT CGL, 'y' rpt, min(HEAD_CODE) || '/' || max(HEAD_CODE) as HEAD_CODE
-        FROM rb_parsed_template
-        WHERE run_id IN ('ysa_report')
-        GROUP BY CGL HAVING count(1) > 1
-    ) b ON a.cgl = b.cgl
-),
-gl_daily AS (
-    -- Get distinct CGLs for the current day
-    
-    SELECT DISTINCT cgl
-    FROM gl_balance
-    WHERE trunc(balance_date) = TO_DATE('31-03-2026', 'DD-MM-YYYY')
-),
-unmapped_nwsa AS (
-    SELECT cgl, 'Unmapped in NWSA' AS reason
-    FROM gl_daily gl
-    WHERE cgl  NOT LIKE '5%'
-      AND NOT EXISTS (SELECT 1 FROM base b WHERE b.CGL = gl.cgl AND b.NWSA_AVAILABLE = 'n')
-),
-unmapped_ysa AS (
-    SELECT cgl, 'Unmapped in YSA' AS reason
-    FROM gl_daily gl
-    WHERE cgl  NOT LIKE '5%'
-      AND cgl  NOT LIKE '7%'
-      AND cgl  NOT LIKE '8%'
-      AND NOT EXISTS (SELECT 1 FROM base b WHERE b.CGL = gl.cgl AND b.BSA_AVAILABLE = 'y')
-),
-unmapped_pnl AS (
-    SELECT cgl, 'Unmapped in PNL' AS reason
-    FROM gl_daily gl
-    WHERE cgl  LIKE '7%' OR (cgl  LIKE '8%')
-      AND NOT EXISTS (SELECT 1 FROM base b WHERE b.CGL = gl.cgl AND b.BSA_AVAILABLE = 'p')
-),
-all_unmapped AS (
-    SELECT * FROM unmapped_nwsa
-    UNION ALL
-    SELECT * FROM unmapped_ysa
-    UNION ALL
-    SELECT * FROM unmapped_pnl
-)
+            target_cgls = [
+                '1111111111', '1111111112', '1260505001', '2148505001',
+                '1148505004', '1148505005', '1148505006', '1148505007',
+                '1148505010', '1148505012', '1148505014', '1148505020',
+                '2148505004', '2148505006', '2148505007', '2148505010',
+                '2148505011', '2148505014', '2148505016', '2148505018',
+                '2148505019', '2148505021', '2148505022', '2148505024',
+                '2148505033', '2148505035', '1260505002', '1260505003'
+            ]
+            cgl_list =  ", ".join([f"'{x}'" for x in target_cgls])
+            
+            # ======================================================
+            # READING TODAY + YESTERDAY 
+            # ======================================================
 
-SELECT cgl, reason  FROM all_unmapped;
+            try:
+
+                balance_df = (
+                    spark.read.format("delta")   
+                    .load(gl_delta_path)
+                    .filter(
+                        F.col("BALANCE_DATE").isin(
+                            posting_date_str,
+                            yesterday
+                        )
+                    )
+                    .withColumns({
+                        "BRANCH_CODE": F.substring(F.col("glcc"), 1, 5),
+                        "CURRENCY": F.substring(F.col("glcc"), 6, 3),
+                        "CGL": F.substring(F.col("glcc"), 9, 10)
+                    })
+                    .filter(F.col("CGL").isin(target_cgls))
+                )
+
+                today_df = (
+                    balance_df
+                    .filter(
+                        F.col("BALANCE_DATE") == run_date
+                    )
+                    .select(
+                        "BRANCH_CODE",
+                        "CURRENCY",
+                        "CGL",
+                        F.col("CLOSING_BALANCE").alias("T_BAL"),
+                        F.col("INR_BALANCE").alias("T_INR_BAL")
+                    )
+                )
+
+                yest_df = (
+                    balance_df
+                    .filter(
+                        F.col("BALANCE_DATE") == yesterday
+                    )
+                    .select(
+                        "BRANCH_CODE",
+                        "CURRENCY",
+                        "CGL",
+                        F.col("CLOSING_BALANCE").alias("Y_BAL"),
+                        F.col("INR_BALANCE").alias("Y_INR_BAL")
+                    )
+                )
+
+            except Exception as e:
+
+                print(f"Error {e} while fetching data from datalake")
+
+                balance_df = read_oracle(
+                    spark,
+                    f"""
+                    (
+                        SELECT
+                            BALANCE_DATE,
+                            BRANCH_CODE,
+                            CURRENCY,
+                            CGL,
+                            BALANCE,
+                            INR_BALANCE
+                        FROM {BALANCE}
+                        WHERE CGL IN ({cgl_list})
+                        AND BALANCE_DATE BETWEEN
+                            TO_DATE('{yesterday}','DD-MM-YYYY')
+                        AND
+                            TO_DATE('{run_date}','DD-MM-YYYY')
+                    ) T
+                    """
+                )
+
+                today_df = (
+                    balance_df
+                    .filter(
+                        F.date_format(
+                            F.col("BALANCE_DATE"),
+                            "dd-MM-yyyy"
+                        ) == run_date
+                    )
+                    .select(
+                        "BRANCH_CODE",
+                        "CURRENCY",
+                        "CGL",
+                        F.col("BALANCE").alias("T_BAL"),
+                        F.col("INR_BALANCE").alias("T_INR_BAL")
+                    )
+                )
+
+                yest_df = (
+                    balance_df
+                    .filter(
+                        F.date_format(
+                            F.col("BALANCE_DATE"),
+                            "dd-MM-yyyy"
+                        ) == yesterday
+                    )
+                    .select(
+                        "BRANCH_CODE",
+                        "CURRENCY",
+                        "CGL",
+                        F.col("BALANCE").alias("Y_BAL"),
+                        F.col("INR_BALANCE").alias("Y_INR_BAL")
+                    )
+                )
+            # ======================================================
+            # EXISTING DF
+            # ======================================================
+            existing_df = read_oracle(
+                spark,
+                f"""
+                (
+                    SELECT
+                        BRANCH_CODE,
+                        CURRENCY,
+                        CGL,
+                        FIRST_ERROR_DATE
+                    FROM SUSPENSE_TRACKER
+                    WHERE BALANCE_DATE = TO_DATE(
+                    '{yesterday}',
+                    'DD-MM-YYYY')
+                ) E
+                """   
+            )
+            # ======================================================
+            # JOINING TODAY AND YESTERDAY
+            # ======================================================
+            joined_df = today_df.alias("t").join(
+                yest_df.alias("y"),
+                on=[
+                    "BRANCH_CODE",
+                    "CURRENCY",
+                    "CGL"
+                ],
+                how="full_outer"
+            )
+
+            # ======================================================
+            # TYPE LOGIC
+            # ======================================================
+            result_df = joined_df.withColumn(
+                "TYPE",
+                when(
+                    (coalesce(col("Y_BAL"), lit(0)  ) == 0) &
+                    (coalesce(col("T_BAL"), lit(0)) != 0),
+                    lit("NEW_ENTRY")
+                )
+                .when(
+
+                    (coalesce(col("Y_BAL"), lit(0)) != 0) &
+                    (coalesce(col("T_BAL"), lit(0)) != 0) & 
+                    (
+                        (col("Y_BAL") != col("T_BAL")) |
+                        (col("Y_INR_BAL") != col("T_INR_BAL"))
+                    ),
+                    lit("DIFFERENCE")
+                )
+                .when(
+                    (coalesce(col("Y_BAL"), lit(0)) != 0) &
+                    (coalesce(col("T_BAL"), lit(0)) == 0),
+                    lit("CLOSED")
+                )
+                .when(
+                    (coalesce(col("Y_BAL"), lit(0)) != 0) &
+                    (coalesce(col("T_BAL"), lit(0)) != 0) &
+                    (col("Y_BAL")==col("T_BAL")),
+                    lit("ZERO_DIFFERENCE")
+                )
+                .otherwise(
+                    lit("IGNORE")
+                )
+            )
+
+            # ======================================================
+            # JOINING EXISTING FIRST ERROR DATE
+            # ======================================================
+            result_df = result_df.join(
+                existing_df,
+                on=[
+                    "BRANCH_CODE",
+                    "CURRENCY",
+                    "CGL"
+                ],
+                how="left"
+            )
+            # ======================================================
+            # FIRST ERROR DATE LOGIC
+            # ======================================================
+            result_df = result_df.withColumn(
+                "FINAL_FIRST_ERROR_DATE",
+                when(col("TYPE") == "NEW_ENTRY",lit(today))
+                .when(col("TYPE").isin("DIFFERENCE", "ZERO_DIFFERENCE", "CLOSED"),
+                    coalesce(col("FIRST_ERROR_DATE"), lit(today))
+                )
+            )
+            # ======================================================
+            # REMOVING IGNORE
+            # ======================================================
+            result_df = result_df.filter(col("TYPE") != "IGNORE")
+            # ======================================================
+            # FINAL DF
+            # ======================================================
+            final_df = result_df.select(
+                lit(today).alias("BALANCE_DATE"),
+                col("BRANCH_CODE"),
+                col("CURRENCY"),
+                col("CGL"),
+                coalesce(col("T_BAL"),lit(0)).alias("BALANCE"),
+                coalesce(col("T_INR_BAL"),lit(0)).alias("INR_BALANCE"),
+                col("TYPE"),
+                col("FINAL_FIRST_ERROR_DATE").alias("FIRST_ERROR_DATE")
+            )
+            # final_df.show(200, False)
+
+            # ======================================================
+            # WRITING TO ORACLE
+            # ======================================================
+            write_oracle(final_df,"SUSPENSE_TRACKER")
