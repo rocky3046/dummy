@@ -1,233 +1,292 @@
-            target_cgls = [
-                '1111111111', '1111111112', '1260505001', '2148505001',
-                '1148505004', '1148505005', '1148505006', '1148505007',
-                '1148505010', '1148505012', '1148505014', '1148505020',
-                '2148505004', '2148505006', '2148505007', '2148505010',
-                '2148505011', '2148505014', '2148505016', '2148505018',
-                '2148505019', '2148505021', '2148505022', '2148505024',
-                '2148505033', '2148505035', '1260505002', '1260505003'
-            ]
-            cgl_list =  ", ".join([f"'{x}'" for x in target_cgls])
-            
-            # ======================================================
-            # READING TODAY + YESTERDAY 
-            # ======================================================
+CREATE OR REPLACE PROCEDURE PRC_POPULATE_SUSPENSE_TRACKER (
+    p_run_date IN DATE DEFAULT NULL
+)
+IS
+    l_run_date  DATE;
+    l_yesterday DATE;
+BEGIN
+    /* ============================================================
+       1. GET RUN DATE
+       ============================================================ */
 
-            try:
+    IF p_run_date IS NULL THEN
 
-                balance_df = (
-                    spark.read.format("delta")   
-                    .load(gl_delta_path)
-                    .filter(
-                        F.col("BALANCE_DATE").isin(
-                            posting_date_str,
-                            yesterday
-                        )
-                    )
-                    .withColumns({
-                        "BRANCH_CODE": F.substring(F.col("glcc"), 1, 5),
-                        "CURRENCY": F.substring(F.col("glcc"), 6, 3),
-                        "CGL": F.substring(F.col("glcc"), 9, 10)
-                    })
-                    .filter(F.col("CGL").isin(target_cgls))
-                )
+        SELECT TRUNC(MAX(etl_date))
+        INTO l_run_date
+        FROM etl_table;
 
-                today_df = (
-                    balance_df
-                    .filter(
-                        F.col("BALANCE_DATE") == run_date
-                    )
-                    .select(
-                        "BRANCH_CODE",
-                        "CURRENCY",
-                        "CGL",
-                        F.col("CLOSING_BALANCE").alias("T_BAL"),
-                        F.col("INR_BALANCE").alias("T_INR_BAL")
-                    )
-                )
+    ELSE
 
-                yest_df = (
-                    balance_df
-                    .filter(
-                        F.col("BALANCE_DATE") == yesterday
-                    )
-                    .select(
-                        "BRANCH_CODE",
-                        "CURRENCY",
-                        "CGL",
-                        F.col("CLOSING_BALANCE").alias("Y_BAL"),
-                        F.col("INR_BALANCE").alias("Y_INR_BAL")
-                    )
-                )
+        l_run_date := TRUNC(p_run_date);
 
-            except Exception as e:
+    END IF;
 
-                print(f"Error {e} while fetching data from datalake")
+    IF l_run_date IS NULL THEN
+        RAISE_APPLICATION_ERROR(
+            -20001,
+            'ETL_DATE not found in ETL_TABLE'
+        );
+    END IF;
 
-                balance_df = read_oracle(
-                    spark,
-                    f"""
-                    (
-                        SELECT
-                            BALANCE_DATE,
-                            BRANCH_CODE,
-                            CURRENCY,
-                            CGL,
-                            BALANCE,
-                            INR_BALANCE
-                        FROM {BALANCE}
-                        WHERE CGL IN ({cgl_list})
-                        AND BALANCE_DATE BETWEEN
-                            TO_DATE('{yesterday}','DD-MM-YYYY')
-                        AND
-                            TO_DATE('{run_date}','DD-MM-YYYY')
-                    ) T
-                    """
-                )
+    l_yesterday := l_run_date - 1;
 
-                today_df = (
-                    balance_df
-                    .filter(
-                        F.date_format(
-                            F.col("BALANCE_DATE"),
-                            "dd-MM-yyyy"
-                        ) == run_date
-                    )
-                    .select(
-                        "BRANCH_CODE",
-                        "CURRENCY",
-                        "CGL",
-                        F.col("BALANCE").alias("T_BAL"),
-                        F.col("INR_BALANCE").alias("T_INR_BAL")
-                    )
-                )
 
-                yest_df = (
-                    balance_df
-                    .filter(
-                        F.date_format(
-                            F.col("BALANCE_DATE"),
-                            "dd-MM-yyyy"
-                        ) == yesterday
-                    )
-                    .select(
-                        "BRANCH_CODE",
-                        "CURRENCY",
-                        "CGL",
-                        F.col("BALANCE").alias("Y_BAL"),
-                        F.col("INR_BALANCE").alias("Y_INR_BAL")
-                    )
-                )
-            # ======================================================
-            # EXISTING DF
-            # ======================================================
-            existing_df = read_oracle(
-                spark,
-                f"""
-                (
-                    SELECT
-                        BRANCH_CODE,
-                        CURRENCY,
-                        CGL,
-                        FIRST_ERROR_DATE
-                    FROM SUSPENSE_TRACKER
-                    WHERE BALANCE_DATE = TO_DATE(
-                    '{yesterday}',
-                    'DD-MM-YYYY')
-                ) E
-                """   
+    /* ============================================================
+       2. REMOVE EXISTING RESULT FOR THIS RUN DATE
+          Makes rerun idempotent
+       ============================================================ */
+
+    DELETE FROM suspense_tracker
+    WHERE balance_date >= l_run_date
+      AND balance_date <  l_run_date + 1;
+
+
+    /* ============================================================
+       3. INSERT RESULT
+       ============================================================ */
+
+    INSERT INTO suspense_tracker (
+        balance_date,
+        branch_code,
+        currency,
+        cgl,
+        balance,
+        inr_balance,
+        type,
+        first_error_date
+    )
+    WITH
+    /* ============================================================
+       TODAY'S BALANCE
+       ============================================================ */
+    today_data AS
+    (
+        SELECT
+            gb.branch_code,
+            gb.currency,
+            gb.cgl,
+            gb.balance       AS t_bal,
+            gb.inr_balance   AS t_inr_bal
+        FROM gl_balance gb
+        WHERE gb.balance_date >= l_run_date
+          AND gb.balance_date <  l_run_date + 1
+          AND gb.cgl IN (
+                '1111111111',
+                '1111111112',
+                '1260505001',
+                '2148505001',
+                '1148505004',
+                '1148505005',
+                '1148505006',
+                '1148505007',
+                '1148505010',
+                '1148505012',
+                '1148505014',
+                '1148505020',
+                '2148505004',
+                '2148505006',
+                '2148505007',
+                '2148505010',
+                '2148505011',
+                '2148505014',
+                '2148505016',
+                '2148505018',
+                '2148505019',
+                '2148505021',
+                '2148505022',
+                '2148505024',
+                '2148505033',
+                '2148505035',
+                '1260505002',
+                '1260505003'
+          )
+    ),
+
+    /* ============================================================
+       YESTERDAY'S BALANCE
+       ============================================================ */
+    yesterday_data AS
+    (
+        SELECT
+            gb.branch_code,
+            gb.currency,
+            gb.cgl,
+            gb.balance       AS y_bal,
+            gb.inr_balance   AS y_inr_bal
+        FROM gl_balance gb
+        WHERE gb.balance_date >= l_yesterday
+          AND gb.balance_date <  l_yesterday + 1
+          AND gb.cgl IN (
+                '1111111111',
+                '1111111112',
+                '1260505001',
+                '2148505001',
+                '1148505004',
+                '1148505005',
+                '1148505006',
+                '1148505007',
+                '1148505010',
+                '1148505012',
+                '1148505014',
+                '1148505020',
+                '2148505004',
+                '2148505006',
+                '2148505007',
+                '2148505010',
+                '2148505011',
+                '2148505014',
+                '2148505016',
+                '2148505018',
+                '2148505019',
+                '2148505021',
+                '2148505022',
+                '2148505024',
+                '2148505033',
+                '2148505035',
+                '1260505002',
+                '1260505003'
+          )
+    ),
+
+    /* ============================================================
+       FULL OUTER JOIN TODAY + YESTERDAY
+       ============================================================ */
+    balance_compare AS
+    (
+        SELECT
+            NVL(t.branch_code, y.branch_code) AS branch_code,
+            NVL(t.currency,    y.currency)    AS currency,
+            NVL(t.cgl,         y.cgl)         AS cgl,
+
+            t.t_bal,
+            t.t_inr_bal,
+
+            y.y_bal,
+            y.y_inr_bal
+
+        FROM today_data t
+        FULL OUTER JOIN yesterday_data y
+            ON  t.branch_code = y.branch_code
+            AND t.currency    = y.currency
+            AND t.cgl         = y.cgl
+    ),
+
+    /* ============================================================
+       TYPE LOGIC
+       ============================================================ */
+    typed_data AS
+    (
+        SELECT
+            bc.*,
+
+            CASE
+
+                /* NEW_ENTRY */
+                WHEN NVL(y_bal, 0) = 0
+                 AND NVL(t_bal, 0) <> 0
+                THEN 'NEW_ENTRY'
+
+                /* DIFFERENCE */
+                WHEN NVL(y_bal, 0) <> 0
+                 AND NVL(t_bal, 0) <> 0
+                 AND (
+                        y_bal <> t_bal
+                     OR y_inr_bal <> t_inr_bal
+                 )
+                THEN 'DIFFERENCE'
+
+                /* CLOSED */
+                WHEN NVL(y_bal, 0) <> 0
+                 AND NVL(t_bal, 0) = 0
+                THEN 'CLOSED'
+
+                /* ZERO_DIFFERENCE */
+                WHEN NVL(y_bal, 0) <> 0
+                 AND NVL(t_bal, 0) <> 0
+                 AND y_bal = t_bal
+                THEN 'ZERO_DIFFERENCE'
+
+                /* IGNORE */
+                ELSE 'IGNORE'
+
+            END AS type
+
+        FROM balance_compare bc
+    ),
+
+    /* ============================================================
+       EXISTING FIRST ERROR DATE FROM YESTERDAY
+       ============================================================ */
+    existing_data AS
+    (
+        SELECT
+            st.branch_code,
+            st.currency,
+            st.cgl,
+            st.first_error_date
+        FROM suspense_tracker st
+        WHERE st.balance_date >= l_yesterday
+          AND st.balance_date <  l_yesterday + 1
+    )
+
+    /* ============================================================
+       FINAL RESULT
+       ============================================================ */
+    SELECT
+        l_run_date AS balance_date,
+
+        td.branch_code,
+        td.currency,
+        td.cgl,
+
+        NVL(td.t_bal,     0) AS balance,
+        NVL(td.t_inr_bal, 0) AS inr_balance,
+
+        td.type,
+
+        CASE
+
+            /* NEW_ENTRY always starts today */
+            WHEN td.type = 'NEW_ENTRY'
+            THEN l_run_date
+
+            /* Keep previous first error date if available */
+            WHEN td.type IN (
+                'DIFFERENCE',
+                'ZERO_DIFFERENCE',
+                'CLOSED'
             )
-            # ======================================================
-            # JOINING TODAY AND YESTERDAY
-            # ======================================================
-            joined_df = today_df.alias("t").join(
-                yest_df.alias("y"),
-                on=[
-                    "BRANCH_CODE",
-                    "CURRENCY",
-                    "CGL"
-                ],
-                how="full_outer"
-            )
+            THEN NVL(ed.first_error_date, l_run_date)
 
-            # ======================================================
-            # TYPE LOGIC
-            # ======================================================
-            result_df = joined_df.withColumn(
-                "TYPE",
-                when(
-                    (coalesce(col("Y_BAL"), lit(0)  ) == 0) &
-                    (coalesce(col("T_BAL"), lit(0)) != 0),
-                    lit("NEW_ENTRY")
-                )
-                .when(
+        END AS first_error_date
 
-                    (coalesce(col("Y_BAL"), lit(0)) != 0) &
-                    (coalesce(col("T_BAL"), lit(0)) != 0) & 
-                    (
-                        (col("Y_BAL") != col("T_BAL")) |
-                        (col("Y_INR_BAL") != col("T_INR_BAL"))
-                    ),
-                    lit("DIFFERENCE")
-                )
-                .when(
-                    (coalesce(col("Y_BAL"), lit(0)) != 0) &
-                    (coalesce(col("T_BAL"), lit(0)) == 0),
-                    lit("CLOSED")
-                )
-                .when(
-                    (coalesce(col("Y_BAL"), lit(0)) != 0) &
-                    (coalesce(col("T_BAL"), lit(0)) != 0) &
-                    (col("Y_BAL")==col("T_BAL")),
-                    lit("ZERO_DIFFERENCE")
-                )
-                .otherwise(
-                    lit("IGNORE")
-                )
-            )
+    FROM typed_data td
 
-            # ======================================================
-            # JOINING EXISTING FIRST ERROR DATE
-            # ======================================================
-            result_df = result_df.join(
-                existing_df,
-                on=[
-                    "BRANCH_CODE",
-                    "CURRENCY",
-                    "CGL"
-                ],
-                how="left"
-            )
-            # ======================================================
-            # FIRST ERROR DATE LOGIC
-            # ======================================================
-            result_df = result_df.withColumn(
-                "FINAL_FIRST_ERROR_DATE",
-                when(col("TYPE") == "NEW_ENTRY",lit(today))
-                .when(col("TYPE").isin("DIFFERENCE", "ZERO_DIFFERENCE", "CLOSED"),
-                    coalesce(col("FIRST_ERROR_DATE"), lit(today))
-                )
-            )
-            # ======================================================
-            # REMOVING IGNORE
-            # ======================================================
-            result_df = result_df.filter(col("TYPE") != "IGNORE")
-            # ======================================================
-            # FINAL DF
-            # ======================================================
-            final_df = result_df.select(
-                lit(today).alias("BALANCE_DATE"),
-                col("BRANCH_CODE"),
-                col("CURRENCY"),
-                col("CGL"),
-                coalesce(col("T_BAL"),lit(0)).alias("BALANCE"),
-                coalesce(col("T_INR_BAL"),lit(0)).alias("INR_BALANCE"),
-                col("TYPE"),
-                col("FINAL_FIRST_ERROR_DATE").alias("FIRST_ERROR_DATE")
-            )
-            # final_df.show(200, False)
+    LEFT JOIN existing_data ed
+        ON  ed.branch_code = td.branch_code
+        AND ed.currency    = td.currency
+        AND ed.cgl         = td.cgl
 
-            # ======================================================
-            # WRITING TO ORACLE
-            # ======================================================
-            write_oracle(final_df,"SUSPENSE_TRACKER")
+    WHERE td.type <> 'IGNORE';
+
+
+    /* ============================================================
+       4. COMMIT
+       ============================================================ */
+
+    COMMIT;
+
+
+EXCEPTION
+    WHEN OTHERS THEN
+
+        ROLLBACK;
+
+        RAISE_APPLICATION_ERROR(
+            -20002,
+            'Error in PRC_POPULATE_SUSPENSE_TRACKER: '
+            || SQLERRM
+        );
+
+END PRC_POPULATE_SUSPENSE_TRACKER;
+/
