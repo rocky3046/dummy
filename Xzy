@@ -8,34 +8,23 @@ IS
 
 BEGIN
 
-    /* ============================================================
-       VALIDATION
-       ============================================================ */
-
-    IF p_from_date IS NULL THEN
+    IF p_from_date IS NULL OR p_to_date IS NULL THEN
         RAISE_APPLICATION_ERROR(
             -20001,
-            'p_from_date cannot be NULL'
-        );
-    END IF;
-
-    IF p_to_date IS NULL THEN
-        RAISE_APPLICATION_ERROR(
-            -20002,
-            'p_to_date cannot be NULL'
+            'From date and To date cannot be NULL'
         );
     END IF;
 
     IF TRUNC(p_from_date) > TRUNC(p_to_date) THEN
         RAISE_APPLICATION_ERROR(
-            -20003,
-            'p_from_date cannot be greater than p_to_date'
+            -20002,
+            'From date cannot be greater than To date'
         );
     END IF;
 
 
     /* ============================================================
-       PROCESS EACH DATE
+       PROCESS EACH DATE SEQUENTIALLY
        ============================================================ */
 
     FOR r IN
@@ -51,20 +40,7 @@ BEGIN
 
 
         /* ========================================================
-           REMOVE EXISTING RESULT FOR THIS DATE
-
-           This makes the procedure safe to rerun for a date.
-           We DO NOT delete yesterday's data because it is required
-           for FIRST_ERROR_DATE processing.
-           ======================================================== */
-
-        DELETE FROM suspense_tracker
-        WHERE balance_date >= l_run_date
-          AND balance_date <  l_run_date + 1;
-
-
-        /* ========================================================
-           INSERT RESULT FOR CURRENT RUN DATE
+           TODAY
            ======================================================== */
 
         INSERT INTO suspense_tracker
@@ -79,27 +55,17 @@ BEGIN
             first_error_date
         )
 
-        WITH
-
-        /* ========================================================
-           TODAY'S BALANCE
-           ======================================================== */
-
-        today_data AS
+        WITH today_data AS
         (
             SELECT
                 gb.branch_code,
                 gb.currency,
                 gb.cgl,
-
-                gb.balance       AS t_bal,
-                gb.inr_balance   AS t_inr_bal
-
+                gb.balance     AS t_bal,
+                gb.inr_balance AS t_inr_bal
             FROM gl_balance gb
-
             WHERE gb.balance_date >= l_run_date
               AND gb.balance_date <  l_run_date + 1
-
               AND gb.cgl IN
               (
                     '1111111111',
@@ -133,9 +99,8 @@ BEGIN
               )
         ),
 
-
         /* ========================================================
-           YESTERDAY'S BALANCE
+           YESTERDAY
            ======================================================== */
 
         yesterday_data AS
@@ -144,15 +109,11 @@ BEGIN
                 gb.branch_code,
                 gb.currency,
                 gb.cgl,
-
-                gb.balance       AS y_bal,
-                gb.inr_balance   AS y_inr_bal
-
+                gb.balance     AS y_bal,
+                gb.inr_balance AS y_inr_bal
             FROM gl_balance gb
-
             WHERE gb.balance_date >= l_yesterday
               AND gb.balance_date <  l_yesterday + 1
-
               AND gb.cgl IN
               (
                     '1111111111',
@@ -186,15 +147,13 @@ BEGIN
               )
         ),
 
-
         /* ========================================================
-           FULL OUTER JOIN
+           TODAY + YESTERDAY
            ======================================================== */
 
         balance_compare AS
         (
             SELECT
-
                 NVL(t.branch_code, y.branch_code) AS branch_code,
                 NVL(t.currency,    y.currency)    AS currency,
                 NVL(t.cgl,         y.cgl)         AS cgl,
@@ -213,81 +172,37 @@ BEGIN
                 AND t.cgl         = y.cgl
         ),
 
-
         /* ========================================================
-           TYPE LOGIC
+           TYPE
            ======================================================== */
 
         typed_data AS
         (
             SELECT
-
                 bc.*,
 
                 CASE
 
-                    /* --------------------------------------------
-                       NEW ENTRY
-                       Yesterday = 0
-                       Today != 0
-                       -------------------------------------------- */
-
                     WHEN NVL(y_bal, 0) = 0
                      AND NVL(t_bal, 0) <> 0
-
                     THEN 'NEW_ENTRY'
-
-
-                    /* --------------------------------------------
-                       DIFFERENCE
-
-                       Yesterday != 0
-                       Today != 0
-                       Balance OR INR balance changed
-                       -------------------------------------------- */
 
                     WHEN NVL(y_bal, 0) <> 0
                      AND NVL(t_bal, 0) <> 0
-                     AND
-                     (
+                     AND (
                             y_bal <> t_bal
                          OR y_inr_bal <> t_inr_bal
                      )
-
                     THEN 'DIFFERENCE'
-
-
-                    /* --------------------------------------------
-                       CLOSED
-
-                       Yesterday != 0
-                       Today = 0
-                       -------------------------------------------- */
 
                     WHEN NVL(y_bal, 0) <> 0
                      AND NVL(t_bal, 0) = 0
-
                     THEN 'CLOSED'
-
-
-                    /* --------------------------------------------
-                       ZERO DIFFERENCE
-
-                       Yesterday != 0
-                       Today != 0
-                       Balance unchanged
-                       -------------------------------------------- */
 
                     WHEN NVL(y_bal, 0) <> 0
                      AND NVL(t_bal, 0) <> 0
                      AND y_bal = t_bal
-
                     THEN 'ZERO_DIFFERENCE'
-
-
-                    /* --------------------------------------------
-                       Everything else
-                       -------------------------------------------- */
 
                     ELSE 'IGNORE'
 
@@ -296,19 +211,12 @@ BEGIN
             FROM balance_compare bc
         ),
 
-
         /* ========================================================
-           EXISTING FIRST ERROR DATE
-
-           Get the previous day's tracker record.
-
-           This is important because when we process:
-
-             04-Apr
-
-           we need the FIRST_ERROR_DATE generated/stored on:
-
-             03-Apr
+           PREVIOUS FIRST ERROR DATE
+           
+           For the first run date there will be no row.
+           For subsequent dates, this picks up the row inserted
+           during the previous loop iteration.
            ======================================================== */
 
         existing_data AS
@@ -318,49 +226,31 @@ BEGIN
                 st.currency,
                 st.cgl,
                 st.first_error_date
-
             FROM suspense_tracker st
-
             WHERE st.balance_date >= l_yesterday
               AND st.balance_date <  l_yesterday + 1
         )
 
-
         /* ========================================================
-           FINAL RESULT
+           FINAL INSERT
            ======================================================== */
 
         SELECT
-
-            /* Current processing date */
             l_run_date AS balance_date,
 
             td.branch_code,
             td.currency,
             td.cgl,
 
-            /* Current balance */
-            NVL(td.t_bal, 0) AS balance,
-
+            NVL(td.t_bal, 0)     AS balance,
             NVL(td.t_inr_bal, 0) AS inr_balance,
 
             td.type,
 
-            /* --------------------------------------------
-               FIRST ERROR DATE LOGIC
-               -------------------------------------------- */
-
             CASE
-
-                /* NEW ENTRY always starts today */
                 WHEN td.type = 'NEW_ENTRY'
                 THEN l_run_date
 
-
-                /* Existing error:
-                   Keep previous FIRST_ERROR_DATE.
-                   If none exists, start today.
-                */
                 WHEN td.type IN
                 (
                     'DIFFERENCE',
@@ -377,26 +267,21 @@ BEGIN
         FROM typed_data td
 
         LEFT JOIN existing_data ed
-
             ON  ed.branch_code = td.branch_code
             AND ed.currency    = td.currency
             AND ed.cgl         = td.cgl
 
-        /* Remove IGNORE records */
         WHERE td.type <> 'IGNORE';
 
 
-        /* ========================================================
-           OPTIONAL:
-           COMMIT AFTER EACH DAY
-           
-           Recommended if the date range can be large.
-           ======================================================== */
-
-        COMMIT;
-
-
     END LOOP;
+
+
+    /* ============================================================
+       COMMIT EVERYTHING AT THE END
+       ============================================================ */
+
+    COMMIT;
 
 
 EXCEPTION
