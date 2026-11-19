@@ -1,332 +1,357 @@
-import logging
-import sys
-import os
-import common.constants as constants
-from datetime import timedelta, date, datetime
-from py4j.java_gateway import java_import
-from pyspark.sql import SparkSession, functions as F
-from pyspark.sql.functions import (to_date, expr, round, col, when, length, substring, trim,concat, lit, create_map, to_timestamp, sum, broadcast,coalesce, current_timestamp
-)
-from common.check_monthend import check_MonthEnd
-from common.logger import setup_logger
-from common.dateUtil import get_etl_date
-from common.fileUtil import paths_for_read, get_hdfs_base
-from common.createSpark import create_spark_session
-from common.processRun import get_run_id
-from common.properties import get_oracle_properties
-from common.log_etl_modified import log_etl
-from pyspark.sql.types import DecimalType
-from common.processRun import get_process_run_id
-from common.fileUtil import tables_to_read
+public class LHODashBoardServiceImpl implements LHODashBoardService {
+
+    final CrsDashRepository crsDashRepository;
+    final DataSource dataSource;
+
+    public LHODashBoardServiceImpl(CrsDashRepository crsDashRepository, DataSource dataSource) {
+        this.crsDashRepository = crsDashRepository;
+        this.dataSource = dataSource;
+    }
+
+    static Logger log = Logger.getLogger(LHODashBoardServiceImpl.class.getName());
+
+    @Override
+    public List<Map<String, Object>> getReportList(Map<String, Object> payload) {
+        Map<String, Object> user = (Map<String, Object>) payload.get("user");
+        String userRole = (String) user.get("user_role");
+        String userModule = (String) user.get("module");
+        if(userModule.equalsIgnoreCase("TAR")){
+            return crsDashRepository.getTarReportList(userRole);
+        } else if (userModule.equalsIgnoreCase("CRS")){
+            return crsDashRepository.getCrsReportList(userRole);
+        }else{
+            return crsDashRepository.getLfarReportList(userRole);
+        }
+    }
+
+    @Override
+    public Map<String, Object> dashPreview(Map<String, Object> payload) throws SQLException {
+        Map<String, Object> user = (Map<String, Object>) payload.get("user");
+        Map<String, Object> data = (Map<String, Object>) payload.get("data");
+        Map<String, Object> result = new HashMap<>();
+        log.info("data: " + data);
+        log.info("user: " + user);
+        log.info(user.get("circleCode").toString());
+        log.info(user.get("roCode").toString());
+        String code;
+        if (user.get("user_role").equals("75")) {
+            code = user.get("circleCode").toString() + user.get("roCode").toString();
+        } else {
+            code = user.get("circleCode").toString();
+        }
+        String quarterDate = user.get("quarterEndDate").toString();
+        String jrxmlName = data.get("jrxmlName").toString();
+        Map<String, Object> pdfCont = new HashMap<>();
+
+        Connection conn = null;
+        String rootPath = Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource("")).getPath();
+        log.info("");
+        String configPath = rootPath + "common.properties";
+        byte[] pdfContent;
+        byte[] xlsxContent;
+        try {
+            Properties config = new Properties();
+            config.load(new FileInputStream(configPath));
+            conn = dataSource.getConnection();
+            String jasperFilePath = rootPath + "jasper" + File.separator + jrxmlName + ".jasper";
+            Map<String, Object> param = new HashMap<>();
+            String outFileDest = config.getProperty("REPORT_HOME_DIR") + "created/" + user.get("circleCode").toString();
+            File outFile = new File(outFileDest);
+            if (!outFile.exists()) {
+                boolean pathCreation = outFile.mkdirs();
+                if (pathCreation) {
+                    log.info("outFilePath created");
+                }
+            }
+            String outFilePath = outFileDest + File.separator + jrxmlName + ".pdf";
+            String outFileXlsx = outFileDest + File.separator + jrxmlName + ".xlsx";
+            param.put("CODE", code);
+            param.put("DATE", quarterDate);
+            pdfContent = jasperBuilder(jasperFilePath, param, conn, outFilePath, outFileDest);
+            xlsxContent = jasperBuilder(jasperFilePath, param, conn, outFileXlsx, outFileDest);
+            pdfCont.put("pdfContent", pdfContent);
+            pdfCont.put("xlsxContent", xlsxContent);
+            pdfCont.put("pdfName", user.get("circleCode").toString()+"_"+data.get("reportName").toString());
+            log.info("pdfContent added to map");
+        } catch (IOException | SQLException e) {
+            log.severe("Exception Occurred " + e);
+        } finally {
+            if (conn != null) {
+                conn.close();
+                log.info("connection closed");
+            }
+        }
+        return pdfCont;
+    }
+
+    private static byte[] jasperBuilder(String jasperFilePath, Map<String, Object> param, Connection conn, String outFilePath, String outFileDest) throws IOException {
+        byte[] pdfContent = new byte[0];
+        JasperPrint jasperPrint;
+        try {
+            jasperPrint = JasperFillManager.fillReport(jasperFilePath, param, conn);
+            File file = new File(outFileDest);
+            log.info("file: {}" + file);
+            if (!file.exists()) {
+                log.info("file path does not exist!");
+                file.mkdirs();
+            }
+            log.info("file path exists");
+
+            if (outFilePath.split("\\.")[1].equalsIgnoreCase("pdf")) {
+                JasperExportManager.exportReportToPdfFile(jasperPrint, outFilePath);
+            } else if (outFilePath.split("\\.")[1].equalsIgnoreCase("xlsx")) {
+                JRXlsxExporter excelExporter = new JRXlsxExporter();
+                OutputStream out = new FileOutputStream(outFilePath);
+                excelExporter.setParameter(JRXlsExporterParameter.JASPER_PRINT, jasperPrint);
+                excelExporter.setParameter(JRXlsExporterParameter.OUTPUT_STREAM, out);
+                excelExporter.setParameter(JRXlsExporterParameter.IS_DETECT_CELL_TYPE, Boolean.TRUE);
+                excelExporter.setParameter(JRXlsExporterParameter.IS_WHITE_PAGE_BACKGROUND, Boolean.FALSE);
+                excelExporter.setParameter(JRXlsExporterParameter.IS_REMOVE_EMPTY_SPACE_BETWEEN_ROWS, Boolean.TRUE);
+                excelExporter.setParameter(JRXlsExporterParameter.IS_IGNORE_CELL_BORDER, Boolean.TRUE);
+                excelExporter.exportReport();
+            }
+        } catch (JRException e) {
+            throw new RuntimeException(e);
+        }
+        log.info("file exported");
+        File file2 = new File(outFilePath);
+
+        if (outFilePath.split("\\.")[1].equalsIgnoreCase("xlsx")) {
+            try (FileInputStream fis = new FileInputStream(file2);
+                 Workbook workbook = new XSSFWorkbook(fis);
+                 ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+
+                // Write the workbook to the ByteArrayOutputStream
+                workbook.write(bos);
+                pdfContent = bos.toByteArray(); // Convert to a byte array
+            } catch (Exception e) {
+                log.severe("Exception Occurred " + e);
+            }
+        } else {
+            try (PDDocument document = PDDocument.load(file2); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+                document.save(outputStream);
+                pdfContent = outputStream.toByteArray();
+            } catch (IOException e) {
+                log.severe("{} File not found. Kindly try again." + outFilePath);
+                //   e.printStackTrace();
+            }
+            log.info("pdfContent generated");
+        }
+        return pdfContent;
+    }
+
+    @Override
+    public byte[] generateBranchListXlsx() throws JRException, SQLException {
+
+        try (Connection con = dataSource.getConnection()) {
+            log.info("Database connection obtained for Jasper report.");
+
+            String jrxmlName = "Frt_Branch_List";
+            InputStream jasperStream = getClass().getClassLoader().getResourceAsStream("jasper/" + jrxmlName + ".jasper");
+            if (jasperStream == null) {
+
+                throw new JRException("Jasper resource not found.");
+            }
+
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put(JRParameter.IS_IGNORE_PAGINATION, true);
+
+            // Fill the report
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperStream, parameters, con);
+            log.info("Jasper report filled successfully.");
+
+            // Export the report to XLSX format in memory
+            JRXlsxExporter exporter = new JRXlsxExporter();
+            ByteArrayOutputStream xlsxStream = new ByteArrayOutputStream();
+
+            exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
+            exporter.setExporterOutput(new SimpleOutputStreamExporterOutput(xlsxStream));
+
+            // Configure the exporter
+            SimpleXlsxReportConfiguration configuration = new SimpleXlsxReportConfiguration();
+            configuration.setDetectCellType(true);
+            configuration.setWhitePageBackground(false);
+            configuration.setRemoveEmptySpaceBetweenRows(true);
+            configuration.setIgnoreCellBorder(true);
+            exporter.setConfiguration(configuration);
+
+            exporter.exportReport();
+            log.info("Report exported to XLSX format in memory.");
+
+            return xlsxStream.toByteArray();
+
+        } catch (SQLException e) {
+
+            throw e;
+        } catch (JRException e) {
+
+            throw e;
+        }
+    }
 
 
-def run_glif_migration(spark, dt, run_id, process_run_id):
-    """
-    Migrates GLIF data from Oracle to Delta Lake for the given date.
-
-    Returns:
-        True  — migration successful, count verified
-        False — no Oracle data, transformation failed, write failed, or count mismatch
-    Raises:
-        Exception — for truly unexpected failures (propagated to precheck)
-
-    IMPORTANT: log_etl status=1 (Oracle INSERT) is NOT called here.
-    It is called ONCE in run_pipeline_precheck BEFORE the migration loop
-    to avoid PK violations on PROCESS_RUN_STAGE table.
-    Only status=2/3 (Kafka UPDATE — no Oracle insert) are called here.
-    """
-    target_date       = dt
-    target_date_str   = target_date.strftime("%d-%m-%y")
-    required_date_str = dt.strftime("%Y-%m-%d")
-
-    logger = setup_logger("GLIF_MIGRATION", target_date_str, run_id)
-    logger.info(f"Starting GLIF migration for DATE = {dt}")
-    logger.info(f"GLIF migration required_date_str: {required_date_str}")
-    oracle_tables = tables_to_read("glif")
-
-    
-    BALANCE = oracle_tables["BALANCE"]
-    
-
-    try:
-       
-        query = f"""
-        (
-            SELECT
-                BRANCH_CODE || CURRENCY || CGL AS GLCC,
-                BALANCE                        AS CLOSING_BALANCE,
-                INR_BALANCE,
-                BALANCE_DATE
-            FROM {BALANCE}
-            WHERE BALANCE_DATE >= DATE '{required_date_str}'
-            AND   BALANCE_DATE <  DATE '{required_date_str}' + 1
-        ) t
-        """
-
-        oracle_props = get_oracle_properties()
-        cfg          = paths_for_read("glif", target_date, target_date_str)
-        HDFS_PATH    = cfg["PRECHECK_DATALAKE_PATH"]
-
-        logger.info(f"GLIF delta lake path: {HDFS_PATH}")
-
-        try:
-            df_source = (
-                spark.read.format("jdbc")
-                .option("url",       oracle_props["url"])
-                .option("user",      oracle_props["user"])
-                .option("password",  oracle_props["password"])
-                .option("driver",    oracle_props["driver"])
-                .option("dbtable",   query)
-                .option("fetchsize", "20000")
-                .load()
-            )
-        except Exception:
-            logger.error("Oracle read failed", exc_info=True)
-            # status=3 → Kafka UPDATE only — safe inside loop
-            log_etl(spark, process_run_id, "glif_migration", 3,
-                    f"Oracle read failed for date {required_date_str}")
-            return False
-
-  
-        oracle_count = df_source.count()
-        if oracle_count == 0:
-            logger.error(f"No GLIF data in Oracle for {required_date_str}")
-            # status=3 → Kafka UPDATE only — safe inside loop
-            log_etl(spark, process_run_id, "glif_migration", 3,
-                    f"No data in Oracle for GLIF date {required_date_str}")
-            return False
-
-        logger.info(f"Oracle record count: {oracle_count}")
-
-   
-        try:
-            df_final = df_source.select(
-                F.col("GLCC").cast("string"),
-                F.col("CLOSING_BALANCE").cast(DecimalType(25, 4)), 
-                F.col("INR_BALANCE").cast(DecimalType(25, 4)),
-                F.col("BALANCE_DATE").cast("date")
-            )
-        except Exception:
-            logger.error("Schema transformation failed", exc_info=True)
-            # status=3 → Kafka UPDATE only — safe inside loop
-            log_etl(spark, process_run_id, "glif_migration", 3,
-                    f"Schema transformation failed for date {required_date_str}")
-            return False
-
-        try:
-            df_final.write \
-                .format("delta") \
-                .mode("overwrite") \
-                .option("replaceWhere", f"BALANCE_DATE = DATE '{required_date_str}'") \
-                .option("mergeSchema", "true") \
-                .save(HDFS_PATH)
-        except Exception:
-            logger.error("Delta write failed", exc_info=True)
-            # status=3 → Kafka UPDATE only — safe inside loop
-            log_etl(spark, process_run_id, "glif_migration", 3,
-                    f"Delta write failed for date {required_date_str}")
-            return False
-
-   
-        delta_count = (
-            spark.read.format("delta")
-            .load(HDFS_PATH)
-            .filter(F.col("BALANCE_DATE") == F.lit(target_date))
-            .count()
-        )
-
-        logger.info(f"Delta count for {required_date_str}: {delta_count}")
-
-        if oracle_count != delta_count:
-            logger.error(
-                f"COUNT MISMATCH | DATE={required_date_str} | "
-                f"ORACLE={oracle_count} | DELTA={delta_count}"
-            )
-            # status=3 → Kafka UPDATE only — safe inside loop
-            log_etl(spark, process_run_id, "glif_migration", 3,
-                    f"Count mismatch Oracle={oracle_count} Delta={delta_count} "
-                    f"for date {required_date_str}")
-            return False
-
-        logger.info(f"GLIF Migration completed successfully for {required_date_str}")
-        # status=2 → Kafka UPDATE only — safe inside loop
-        log_etl(spark, process_run_id, "glif_migration", 2,
-                f"GLIF Migration Completed for date {required_date_str}")
-        return True  
-
-    except Exception:
-        logger.error("GLIF Migration failed unexpectedly", exc_info=True)
-        # status=3 → Kafka UPDATE only — safe inside loop
-        log_etl(spark, process_run_id, "glif_migration", 3,
-                f"Unexpected error in GLIF Migration for date {required_date_str}")
-        raise
+}
 
 
-
-
-------------------------------------------------------------------#
-#!/usr/bin/env python3
-
-from pyspark.sql import SparkSession, functions as F, types as T
-from pyspark.sql.types import DecimalType
-import traceback
-import sys
-from datetime import date, timedelta
-from common.logger import setup_logger
-from common.properties import get_oracle_properties
-from common.fileUtil import paths_for_read
-from common.log_etl_modified import log_etl
-from common.fileUtil import tables_to_read
-
-def run_difference_migration(spark, dt, run_id, process_run_id):
-    """
-    Migrates DIFFERENCE data from Oracle to Delta Lake for the given date.
-
-    Returns:
-        True  — migration successful, count verified
-        False — no Oracle data, transformation failed, write failed, or count mismatch
-    Raises:
-        Exception — for truly unexpected failures (propagated to precheck)
-
-    IMPORTANT: log_etl status=1 (Oracle INSERT) is NOT called here.
-    It is called ONCE in run_pipeline_precheck BEFORE the migration loop
-    to avoid PK violations on PROCESS_RUN_STAGE table.
-    Only status=2/3 (Kafka UPDATE — no Oracle insert) are called here.
-    """
-    target_date       = dt
-    target_date_str   = target_date.strftime("%d-%m-%y")
-    required_date_str = dt.strftime("%Y-%m-%d")
-
-    logger = setup_logger(
-        "difference_migration",
-        target_date.strftime("%Y-%m-%d"),
-        run_id
-    )
-    TABLES = tables_to_read("difference")
-    DIFFERENCE = TABLES["DIFFERENCE"]
-    
-
-    logger.info(f"Starting difference migration for DATE = {dt}")
-    logger.info(f"Required date for difference migration: {required_date_str}")
-
-    try:
-
-        query = f"""
-        (
-            SELECT
-                BRANCH_CODE || CURRENCY || CGL AS GLCC,
-                DIFFERENCE_AMOUNT,
-                FIRST_ERROR_DATE,
-                RECON_RUN_DATE
-            FROM {DIFFERENCE}
-            WHERE RECON_RUN_DATE >= DATE '{required_date_str}'
-            AND   RECON_RUN_DATE <  DATE '{required_date_str}' + 1
-        ) t
-        """
-
-        oracle_props = get_oracle_properties()
-
-        cfg       = paths_for_read("difference", target_date, target_date_str)
-        HDFS_PATH = cfg["PRECHECK_DATALAKE_PATH"]
-        logger.info(f"Difference delta lake path: {HDFS_PATH}")
-
-       
-        try:
-            df_source = (
-                spark.read.format("jdbc")
-                .option("url",       oracle_props["url"])
-                .option("user",      oracle_props["user"])
-                .option("password",  oracle_props["password"])
-                .option("driver",    oracle_props["driver"])
-                .option("dbtable",   query)
-                .option("fetchsize", "20000")
-                .load()
-            )
-        except Exception:
-            logger.error("Oracle read failed", exc_info=True)
-            # status=3 → Kafka UPDATE only — safe inside loop
-            log_etl(spark, process_run_id, "difference_migration", 3,
-                    f"Oracle read failed for date {required_date_str}")
-            return False
-
-        
-        oracle_count = df_source.count()  
-        if oracle_count == 0:
-            logger.error(f"No DIFFERENCE data found in Oracle for {required_date_str}")
-            # status=3 → Kafka UPDATE only — safe inside loop
-            log_etl(spark, process_run_id, "difference_migration", 3,
-                    f"No data in Oracle for DIFFERENCE date {required_date_str}")
-            return False
-
-        logger.info(f"Oracle record count: {oracle_count}") 
-
-        try:
-            df_final = df_source.select(
-                F.col("GLCC").cast("string"),
-                F.col("DIFFERENCE_AMOUNT").cast(DecimalType(25, 4)),
-                F.col("FIRST_ERROR_DATE").cast("date"),
-                F.col("RECON_RUN_DATE").cast("date").alias("RECON_DATE")
-            )
-        except Exception:
-            logger.error("Schema transformation failed", exc_info=True)
-            # status=3 → Kafka UPDATE only — safe inside loop
-            log_etl(spark, process_run_id, "difference_migration", 3,f"Schema transformation failed for date {required_date_str}")
-            return False
-
-        try:
-            df_final.write \
-                .format("delta") \
-                .mode("overwrite") \
-                .option("replaceWhere", f"RECON_DATE = DATE '{required_date_str}'") \
-                .option("mergeSchema", "true") \
-                .save(HDFS_PATH)
-        except Exception:
-            logger.error("Delta write failed", exc_info=True)
-            # status=3 → Kafka UPDATE only — safe inside loop
-            log_etl(spark, process_run_id, "difference_migration", 3,f"Delta write failed for date {required_date_str}")
-            return False
-
-        delta_count = (
-            spark.read.format("delta")
-            .load(HDFS_PATH)
-            .filter(F.col("RECON_DATE") == F.lit(target_date))
-            .count()
-        )
-
-        logger.info(f"Delta count for {required_date_str}: {delta_count}")
-
-        if oracle_count != delta_count:
-            logger.error(
-                f"COUNT MISMATCH | DATE={required_date_str} | "
-                f"ORACLE={oracle_count} | DELTA={delta_count}"
-            )
-            # status=3 → Kafka UPDATE only — safe inside loop
-            log_etl(spark, process_run_id, "difference_migration", 3,f"Count mismatch Oracle={oracle_count} Delta={delta_count} "
-                    f"for date {required_date_str}")
-            return False
-
-        logger.info(f"Difference migration completed successfully for {required_date_str}")
-        # status=2 → Kafka UPDATE only — safe inside loop
-        log_etl(spark, process_run_id, "difference_migration", 2,f"Difference Migration Completed for date {required_date_str}")
-        return True 
-
-    except Exception:
-        logger.error("Difference migration failed unexpectedly", exc_info=True)
-        # status=3 → Kafka UPDATE only — safe inside loop
-        log_etl(spark, process_run_id, "difference_migration", 3,f"Unexpected error in Difference Migration for date {required_date_str}")
-        raise
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Path Manipulation
+SCA
+4
+4
+WebInspect
+0
+0
+SecurityScope
+0
+0
+Total
+4
+4
+Critical
+URL: 0
+src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
+145 (Path Manipulation)
+Critical
+Issue Details
+Kingdom: Input Validation and Representation
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: previewDash(0)
+From: com.crs.dashboardService.controllers.DashBoardController.previewDash
+File: src/main/java/com/crs/dashboardService/controllers/DashBoardController.java:4
+5
+URL: 0
+42  }
+43 
+44  @RequestMapping("/previewDash")
+45  public ResponseEntity<ResponseVO> previewDash(@RequestBody Map<String, Object> payload) throws 
+SQLException {
+46  ResponseVO responseVO = new ResponseVO();
+47  Map<String, Object> dashPreview = lhoDashBoardService.dashPreview(payload);
+48  responseVO.setStatusCode(HttpStatus.OK.value());
+Sink Details
+Sink: java.io.File.File()
+Enclosing Method: jasperBuilder()
+File: src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java:145
+Taint Flags: WEB, XSS
+142  throw new RuntimeException(e);
+Nov 14, 2026, 7:34 PM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+212
+Nov 14, 2026, 7:34 PM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+213
+Path Manipulation Critical
+URL: 0
+src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
+145 (Path Manipulation) Critical
+143  }
+144  log.info("file exported");
+145  File file2 = new File(outFilePath);
+146 
+147  if (outFilePath.split("\\.")[1].equalsIgnoreCase("xlsx")) {
+148  try (FileInputStream fis = new FileInputStream(file2);
+src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
+87 (Path Manipulation) Critical
+Issue Details
+Kingdom: Input Validation and Representation
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: previewDash(0)
+From: com.crs.dashboardService.controllers.DashBoardController.previewDash
+File: src/main/java/com/crs/dashboardService/controllers/DashBoardController.java:4
+5
+URL: 0
+42  }
+43 
+44  @RequestMapping("/previewDash")
+45  public ResponseEntity<ResponseVO> previewDash(@RequestBody Map<String, Object> payload) throws 
+SQLException {
+46  ResponseVO responseVO = new ResponseVO();
+47  Map<String, Object> dashPreview = lhoDashBoardService.dashPreview(payload);
+48  responseVO.setStatusCode(HttpStatus.OK.value());
+Sink Details
+Sink: java.io.File.File()
+Enclosing Method: dashPreview()
+File: src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java:87
+Taint Flags: WEB, XSS
+84  String jasperFilePath = rootPath + "jasper" + File.separator + jrxmlName + ".jasper";
+85  Map<String, Object> param = new HashMap<>();
+86  String outFileDest = config.getProperty("REPORT_HOME_DIR") + "created/" + user.get("circleCode").toString();
+87  File outFile = new File(outFileDest);
+88  if (!outFile.exists()) {
+89  boolean pathCreation = outFile.mkdirs();
+90  if (pathCreation) {
+Nov 14, 2026, 7:34 PM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+214
+Path Manipulation Critical
+URL: 0
+src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
+132 (Path Manipulation) Critical
+Issue Details
+Kingdom: Input Validation and Representation
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: previewDash(0)
+From: com.crs.dashboardService.controllers.DashBoardController.previewDash
+File: src/main/java/com/crs/dashboardService/controllers/DashBoardController.java:4
+5
+URL: 0
+42  }
+43 
+44  @RequestMapping("/previewDash")
+45  public ResponseEntity<ResponseVO> previewDash(@RequestBody Map<String, Object> payload) throws 
+SQLException {
+46  ResponseVO responseVO = new ResponseVO();
+47  Map<String, Object> dashPreview = lhoDashBoardService.dashPreview(payload);
+48  responseVO.setStatusCode(HttpStatus.OK.value());
+Sink Details
+Sink: java.io.FileOutputStream.FileOutputStream()
+Enclosing Method: jasperBuilder()
+File: src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java:132
+Taint Flags: WEB, XSS
+129  JasperExportManager.exportReportToPdfFile(jasperPrint, outFilePath);
+130  } else if (outFilePath.split("\\.")[1].equalsIgnoreCase("xlsx")) {
+131  JRXlsxExporter excelExporter = new JRXlsxExporter();
+132  OutputStream out = new FileOutputStream(outFilePath);
+133  excelExporter.setParameter(JRXlsExporterParameter.JASPER_PRINT, jasperPrint);
+134  excelExporter.setParameter(JRXlsExporterParameter.OUTPUT_STREAM, out);
+135  excelExporter.setParameter(JRXlsExporterParameter.IS_DETECT_CELL_TYPE, Boolean.TRUE);
+src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
+120 (Path Manipulation) Critical
+Issue Details
+Kingdom: Input Validation and Representation
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: previewDash(0)
+From: com.crs.dashboardService.controllers.DashBoardController.previewDash
+Nov 14, 2026, 7:34 PM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+215
+Path Manipulation Critical
+URL: 0
+src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
+120 (Path Manipulation) Critical
+File: src/main/java/com/crs/dashboardService/controllers/DashBoardController.java:4
+5
+URL: 0
+42  }
+43 
+44  @RequestMapping("/previewDash")
+45  public ResponseEntity<ResponseVO> previewDash(@RequestBody Map<String, Object> payload) throws 
+SQLException {
+46  ResponseVO responseVO = new ResponseVO();
+47  Map<String, Object> dashPreview = lhoDashBoardService.dashPreview(payload);
+48  responseVO.setStatusCode(HttpStatus.OK.value());
+Sink Details
+Sink: java.io.File.File()
+Enclosing Method: jasperBuilder()
+File: src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java:120
+Taint Flags: WEB, XSS
+117  JasperPrint jasperPrint;
+118  try {
+119  jasperPrint = JasperFillManager.fillReport(jasperFilePath, param, conn);
+120  File file = new File(outFileDest);
+121  log.info("file: {}" + file);
+122  if (!file.exists()) {
+123  log.info("file path does not exist!")
