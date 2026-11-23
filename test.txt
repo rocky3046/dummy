@@ -1,357 +1,1074 @@
-public class LHODashBoardServiceImpl implements LHODashBoardService {
+Access Control: Database
+SCA
+155
+155
+WebInspect
+0
+0
+SecurityScope
+Total
+0
+0
+155
+155
+High
+URL: null
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 192 (Access Control: Database)
+High
+Issue Details
+Kingdom: Security Features
+Scan Engine: SCA (Data Flow)
+Nov 23, 2026, 7:34 AM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+7
+Nov 23, 2026, 7:34 AM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+8
+Access Control: Database High
+URL: null
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 192 (Access Control: Database) High
+Source Details
+Source: submitDetails(0)
+From: com.crs.dashboardService.controllers.LHOEditBranchDetailsController.submitDet
+ails
+File: src/main/java/com/crs/dashboardService/controllers/LHOEditBranchDetailsContro
+ller.java:155
+URL: null
+152  }
+153 
+154  @PostMapping("/SubmitDetails")
+155  public ResponseEntity submitDetails(@RequestBody Map<String,Object> map) throws ParseException{
+156 
+157  log.info("iside submitdetails controller file");
+158  log.info("map==="+map);
+Sink Details
+Sink: com.crs.dashboardService.repositories.LfarRepository.updateQueryLfar()
+Enclosing Method: submitDetails()
+File: src/main/java/com/crs/dashboardService/services/LHOEditBranchDetailsServiceImpl.java:192
+Taint Flags: PRIMARY_KEY, WEB, XSS
+189  log.info("b===" + flagTar);
+190 
+191  Integer flagLfar = lfarRepository.updateQueryLfar( (String) mapBranchData.get("NAME"), (String) 
+mapBranchData.get("NETWORK"), (String) mapBranchData.get("MODULE"),
+192  moduleNew, (String) mapBranchData.get("STDCODE"), (String) mapBranchData.get("PHONE"), (String) 
+mapBranchData.get("MOBILE"), (String) mapBranchData.get("ADDRESS"),
+193  (String) mapBranchData.get("CITY"), (String) mapBranchData.get("STATE"), (String) mapBranchData.get("PIN"), (String) 
+mapBranchData.get("IPPHONE"),
+194  (String) mapBranchData.get("REGION") ,(String) mapBranchData.get("CODE"), quarterEndDate);
+195  log.info("c===" + flagLfar);
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 186 (Access Control: Database) High
+Issue Details
+Kingdom: Security Features
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: submitDetails(0)
+From: com.crs.dashboardService.controllers.LHOEditBranchDetailsController.submitDet
+ails
+File: src/main/java/com/crs/dashboardService/controllers/LHOEditBranchDetailsContro
+Nov 23, 2026, 7:34 AM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+9
+Access Control: Database High
+URL: null
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 186 (Access Control: Database) High
+ller.java:155
+URL: null
+152  }
+153 
+154  @PostMapping("/SubmitDetails")
+155  public ResponseEntity submitDetails(@RequestBody Map<String,Object> map) throws ParseException{
+156 
+157  log.info("iside submitdetails controller file");
+158  log.info("map==="+map);
+Sink Details
+Sink: com.crs.dashboardService.repositories.TarBranchRepository.updateQueryTar()
+Enclosing Method: submitDetails()
+File: src/main/java/com/crs/dashboardService/services/LHOEditBranchDetailsServiceImpl.java:186
+Taint Flags: PRIMARY_KEY, WEB, XSS
+183  log.info("a===" + flag);
+184 
+185  Integer flagTar = tarBranchRepository.updateQueryTar( (String) mapBranchData.get("NAME"), (String) 
+mapBranchData.get("NETWORK"), (String) mapBranchData.get("MODULE"),
+186  moduleNew, (String) mapBranchData.get("STDCODE"), (String) mapBranchData.get("PHONE"), (String) 
+mapBranchData.get("MOBILE"), (String) mapBranchData.get("ADDRESS"),
+187  (String) mapBranchData.get("CITY"), (String) mapBranchData.get("STATE"), (String) mapBranchData.get("PIN"), (String) 
+mapBranchData.get("IPPHONE"),
+188  (String) mapBranchData.get("REGION"), (String) mapBranchData.get("CODE"), quarterEndDate);
+189  log.info("b===" + flagTar);
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 218 (Access Control: Database) High
+Issue Details
+Kingdom: Security Features
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: submitDetails(0)
+From: com.crs.dashboardService.controllers.LHOEditBranchDetailsController.submitDet
+ails
+File: src/main/java/com/crs/dashboardService/controllers/LHOEditBranchDetailsContro
+ller.java:155
+URL: null
+152  }
+153 
+Nov 23, 2026, 7:34 AM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+10
+Access Control: Database High
+URL: null
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 218 (Access Control: Database) High
+154  @PostMapping("/SubmitDetails")
+155  public ResponseEntity submitDetails(@RequestBody Map<String,Object> map) throws ParseException{
+156 
+157  log.info("iside submitdetails controller file");
+158  log.info("map==="+map);
+Sink Details
+Sink: com.crs.dashboardService.repositories.ReportSubmissionRepository.setRoCodeCrs()
+Enclosing Method: submitDetails()
+File: src/main/java/com/crs/dashboardService/services/LHOEditBranchDetailsServiceImpl.java:218
+Taint Flags: PRIMARY_KEY, WEB, XSS
+215  if (flag == 1) {
+216  log.info("inside setting rocode queries condition");
+217  if (countcheck > 0) {
+218  int flagCrsRo = reportSubmissionRepository.setRoCodeCrs(moduleNew, (String) mapBranchData.get("CODE"), quarterEndDate);
+219  log.info("1===" + flag);
+220  flag=1;
+221  }
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 783 (Access Control: Database) High
+Issue Details
+Kingdom: Security Features
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: rejectRequests(0)
+From: com.crs.dashboardService.controllers.LHOEditBranchDetailsController.rejectReq
+uests
+File: src/main/java/com/crs/dashboardService/controllers/LHOEditBranchDetailsContro
+ller.java:95
+URL: null
+92 
+93  //Added by v1019094
+94  @PostMapping("/rejectRequests")
+95  public ResponseEntity<Map<String, Object>> rejectRequests(@RequestBody Map<String, Object> payload) {
+96  log.info("Processing reject request for payload: " + payload);
+97  return lhoEditBranchDetailsService.rejectRequests(payload);
+98  }
+Nov 23, 2026, 7:34 AM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+11
+Access Control: Database High
+URL: null
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 783 (Access Control: Database) High
+Sink Details
+Sink: com.crs.dashboardService.repositories.CrsAuditStatusRepository.updateCrsRequestStatus()
+Enclosing Method: rejectRequests()
+File: src/main/java/com/crs/dashboardService/services/LHOEditBranchDetailsServiceImpl.java:783
+Taint Flags: PRIMARY_KEY, WEB, XSS
+780  crsAuditStatusRepository.updateRequestStatus(String.valueOf(reqId), "R"); // 'R' for Rejected
+781  }
+782  for(Integer ids : requestIds) {
+783  crsAuditStatusRepository.updateCrsRequestStatus(String.valueOf(ids), "3", userId);
+784  }
+785  response.put("message", requestIds.size() + " request(s) rejected successfully.");
+786  return new ResponseEntity<>(response, HttpStatus.OK);
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 180 (Access Control: Database) High
+Issue Details
+Kingdom: Security Features
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: submitDetails(0)
+From: com.crs.dashboardService.controllers.LHOEditBranchDetailsController.submitDet
+ails
+File: src/main/java/com/crs/dashboardService/controllers/LHOEditBranchDetailsContro
+ller.java:155
+URL: null
+152  }
+153 
+154  @PostMapping("/SubmitDetails")
+155  public ResponseEntity submitDetails(@RequestBody Map<String,Object> map) throws ParseException{
+156 
+157  log.info("iside submitdetails controller file");
+158  log.info("map==="+map);
+Sink Details
+Sink: com.crs.dashboardService.repositories.BranchMasterRepository.updateQueryCrs()
+Enclosing Method: submitDetails()
+File: src/main/java/com/crs/dashboardService/services/LHOEditBranchDetailsServiceImpl.java:180
+Taint Flags: PRIMARY_KEY, WEB, XSS
+177 
+178 
+Nov 23, 2026, 7:34 AM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+12
+Access Control: Database High
+URL: null
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 180 (Access Control: Database) High
+179  flag = branchMasterRepository.updateQueryCrs((String) mapBranchData.get("NAME"), (String) mapBranchData.get("NETWORK"), 
+(String) mapBranchData.get("MODULE"),
+180  moduleNew, (String) mapBranchData.get("STDCODE"), (String) mapBranchData.get("PHONE"), (String) 
+mapBranchData.get("MOBILE"), (String) mapBranchData.get("ADDRESS"),
+181  (String) mapBranchData.get("CITY"), (String) mapBranchData.get("STATE"), (String) mapBranchData.get("PIN"), (String) 
+mapBranchData.get("IPPHONE"),
+182  (String) mapBranchData.get("REGION"), (String) mapBranchData.get("CODE"));
+183  log.info("a===" + flag);
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 224 (Access Control: Database) High
+Issue Details
+Kingdom: Security Features
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: submitDetails(0)
+From: com.crs.dashboardService.controllers.LHOEditBranchDetailsController.submitDet
+ails
+File: src/main/java/com/crs/dashboardService/controllers/LHOEditBranchDetailsContro
+ller.java:155
+URL: null
+152  }
+153 
+154  @PostMapping("/SubmitDetails")
+155  public ResponseEntity submitDetails(@RequestBody Map<String,Object> map) throws ParseException{
+156 
+157  log.info("iside submitdetails controller file");
+158  log.info("map==="+map);
+Sink Details
+Sink: com.crs.dashboardService.repositories.TarReportsMasterListRepository.setRoCodeTar()
+Enclosing Method: submitDetails()
+File: src/main/java/com/crs/dashboardService/services/LHOEditBranchDetailsServiceImpl.java:224
+Taint Flags: PRIMARY_KEY, WEB, XSS
+221  }
+222 
+223  if (countcheckTar > 0) {
+224  int flagTarRo = tarReportsMasterListRepository.setRoCodeTar(moduleNew, (String) mapBranchData.get("CODE"), quarterEndDate);
+225  log.info("2===" + flag);
+226  flag=1;
+227  }
+Nov 23, 2026, 7:34 AM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+13
+Access Control: Database High
+URL: null
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 224 (Access Control: Database) High
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 230 (Access Control: Database) High
+Issue Details
+Kingdom: Security Features
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: submitDetails(0)
+From: com.crs.dashboardService.controllers.LHOEditBranchDetailsController.submitDet
+ails
+File: src/main/java/com/crs/dashboardService/controllers/LHOEditBranchDetailsContro
+ller.java:155
+URL: null
+152  }
+153 
+154  @PostMapping("/SubmitDetails")
+155  public ResponseEntity submitDetails(@RequestBody Map<String,Object> map) throws ParseException{
+156 
+157  log.info("iside submitdetails controller file");
+158  log.info("map==="+map);
+Sink Details
+Sink: com.crs.dashboardService.repositories.LfarReportsMasterListRepository.setRoCodeLfar()
+Enclosing Method: submitDetails()
+File: src/main/java/com/crs/dashboardService/services/LHOEditBranchDetailsServiceImpl.java:230
+Taint Flags: PRIMARY_KEY, WEB, XSS
+227  }
+228 
+229  if (countCheckLfar > 0) {
+230  int flagLfarRo = lfarReportsMasterListRepository.setRoCodeLfar(moduleNew, (String) mapBranchData.get("CODE"),quarterEndDate);
+231  log.info("3===" + flag);
+232  flag=1;
+233  }
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 753 (Access Control: Database) High
+Issue Details
+Kingdom: Security Features
+Scan Engine: SCA (Data Flow)
+Nov 23, 2026, 7:34 AM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+14
+Access Control: Database High
+URL: null
+src/main/java/com/crs/dashboardService/services/
+LHOEditBranchDetailsServiceImpl.java, line 753 (Access Control: Database) High
+Source Details
+Source: approveRequests(0)
+From: com.crs.dashboardService.controllers.LHOEditBranchDetailsController.approveRe
+quests
+File: src/main/java/com/crs/dashboardService/controllers/LHOEditBranchDetailsContro
+ller.java:88
+URL: null
+85 
+86  //Added by v1019094
+87  @PostMapping("/approveRequests")
+88  public ResponseEntity<Map<String, Object>> approveRequests(@RequestBody Map<String, Object> payload) 
+{
+89  log.info("Processing approve request for payload: " + payload);
+90  return lhoEditBranchDetailsService.approveRequests(payload);
+91  }
+Sink Details
+Sink: com.crs.dashboardService.repositories.CrsAuditStatusRepository.updateCrsRequestStatus()
+Enclosing Method: approveRequests()
+File: src/main/java/com/crs/dashboardService/services/LHOEditBranchDetailsServiceImpl.java:753
+Taint Flags: PRIMARY_KEY, WEB, XSS
+750  successCount++;
+751  }
+752  for(Integer ids : requestIds) {
+753  crsAuditStatusRepository.updateCrsRequestStatus(String.valueOf(ids), "2", userId);
+754  }
+755  response.put("message", successCount + " request(s) approved successfully.");
+756  return new ResponseEntity<>(response, HttpStatus.OK)
 
-    final CrsDashRepository crsDashRepository;
-    final DataSource dataSource;
+this is SanitizeUtil.java
 
-    public LHODashBoardServiceImpl(CrsDashRepository crsDashRepository, DataSource dataSource) {
-        this.crsDashRepository = crsDashRepository;
-        this.dataSource = dataSource;
+package com.crs.dashboardService.utils;
+
+
+import java.io.File;
+import java.nio.file.Path;
+
+public class SanitizeUtil {
+    public static final String ALLOWED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-(). ";
+    public static final String ALLOWED_DIGITS = "0123456789";
+
+    public static String sanitizeSegment(String value, String fieldName) {
+    if (value == null || value.isEmpty() || value.contains("..")) {
+        throw new IllegalArgumentException("Invalid characters in " + fieldName);
+    }
+    StringBuilder clean = new StringBuilder(value.length());
+    for (int i = 0; i < value.length(); i++) {
+        char c = value.charAt(i);
+        int idx = ALLOWED_CHARS.indexOf(c);
+        if (idx < 0) {
+            throw new IllegalArgumentException("Invalid character in " + fieldName);
+        }
+        clean.append(ALLOWED_CHARS.charAt(idx));
+    }
+    return clean.toString();
     }
 
-    static Logger log = Logger.getLogger(LHODashBoardServiceImpl.class.getName());
-
-    @Override
-    public List<Map<String, Object>> getReportList(Map<String, Object> payload) {
-        Map<String, Object> user = (Map<String, Object>) payload.get("user");
-        String userRole = (String) user.get("user_role");
-        String userModule = (String) user.get("module");
-        if(userModule.equalsIgnoreCase("TAR")){
-            return crsDashRepository.getTarReportList(userRole);
-        } else if (userModule.equalsIgnoreCase("CRS")){
-            return crsDashRepository.getCrsReportList(userRole);
-        }else{
-            return crsDashRepository.getLfarReportList(userRole);
+    public static File resolveSafeFile(String baseDir, String... segments) {
+        Path basePath = new File(baseDir).toPath().toAbsolutePath().normalize();
+        Path resolved = basePath;
+        for (String segment : segments) {
+            String cleanSegment = sanitizeSegment(segment, "path segment");
+            resolved = resolved.resolve(cleanSegment).normalize();
         }
+        if (!resolved.startsWith(basePath)) {
+            throw new SecurityException("Path traversal attempt detected.");
+        }
+        return resolved.toFile();
     }
 
-    @Override
-    public Map<String, Object> dashPreview(Map<String, Object> payload) throws SQLException {
-        Map<String, Object> user = (Map<String, Object>) payload.get("user");
-        Map<String, Object> data = (Map<String, Object>) payload.get("data");
-        Map<String, Object> result = new HashMap<>();
-        log.info("data: " + data);
-        log.info("user: " + user);
-        log.info(user.get("circleCode").toString());
-        log.info(user.get("roCode").toString());
-        String code;
-        if (user.get("user_role").equals("75")) {
-            code = user.get("circleCode").toString() + user.get("roCode").toString();
-        } else {
-            code = user.get("circleCode").toString();
+    public static int sanitizeInt(Object rawValue, String fieldName) {
+        if (rawValue == null) {
+            throw new IllegalArgumentException(fieldName + " cannot be null");
         }
-        String quarterDate = user.get("quarterEndDate").toString();
-        String jrxmlName = data.get("jrxmlName").toString();
-        Map<String, Object> pdfCont = new HashMap<>();
-
-        Connection conn = null;
-        String rootPath = Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource("")).getPath();
-        log.info("");
-        String configPath = rootPath + "common.properties";
-        byte[] pdfContent;
-        byte[] xlsxContent;
-        try {
-            Properties config = new Properties();
-            config.load(new FileInputStream(configPath));
-            conn = dataSource.getConnection();
-            String jasperFilePath = rootPath + "jasper" + File.separator + jrxmlName + ".jasper";
-            Map<String, Object> param = new HashMap<>();
-            String outFileDest = config.getProperty("REPORT_HOME_DIR") + "created/" + user.get("circleCode").toString();
-            File outFile = new File(outFileDest);
-            if (!outFile.exists()) {
-                boolean pathCreation = outFile.mkdirs();
-                if (pathCreation) {
-                    log.info("outFilePath created");
-                }
-            }
-            String outFilePath = outFileDest + File.separator + jrxmlName + ".pdf";
-            String outFileXlsx = outFileDest + File.separator + jrxmlName + ".xlsx";
-            param.put("CODE", code);
-            param.put("DATE", quarterDate);
-            pdfContent = jasperBuilder(jasperFilePath, param, conn, outFilePath, outFileDest);
-            xlsxContent = jasperBuilder(jasperFilePath, param, conn, outFileXlsx, outFileDest);
-            pdfCont.put("pdfContent", pdfContent);
-            pdfCont.put("xlsxContent", xlsxContent);
-            pdfCont.put("pdfName", user.get("circleCode").toString()+"_"+data.get("reportName").toString());
-            log.info("pdfContent added to map");
-        } catch (IOException | SQLException e) {
-            log.severe("Exception Occurred " + e);
-        } finally {
-            if (conn != null) {
-                conn.close();
-                log.info("connection closed");
-            }
+        String str = rawValue.toString().trim();
+        if (str.isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " cannot be empty");
         }
-        return pdfCont;
-    }
-
-    private static byte[] jasperBuilder(String jasperFilePath, Map<String, Object> param, Connection conn, String outFilePath, String outFileDest) throws IOException {
-        byte[] pdfContent = new byte[0];
-        JasperPrint jasperPrint;
-        try {
-            jasperPrint = JasperFillManager.fillReport(jasperFilePath, param, conn);
-            File file = new File(outFileDest);
-            log.info("file: {}" + file);
-            if (!file.exists()) {
-                log.info("file path does not exist!");
-                file.mkdirs();
+        StringBuilder clean = new StringBuilder(str.length());
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            int idx = ALLOWED_DIGITS.indexOf(c);
+            if (idx < 0) {
+                throw new IllegalArgumentException("Invalid digit in " + fieldName);
             }
-            log.info("file path exists");
-
-            if (outFilePath.split("\\.")[1].equalsIgnoreCase("pdf")) {
-                JasperExportManager.exportReportToPdfFile(jasperPrint, outFilePath);
-            } else if (outFilePath.split("\\.")[1].equalsIgnoreCase("xlsx")) {
-                JRXlsxExporter excelExporter = new JRXlsxExporter();
-                OutputStream out = new FileOutputStream(outFilePath);
-                excelExporter.setParameter(JRXlsExporterParameter.JASPER_PRINT, jasperPrint);
-                excelExporter.setParameter(JRXlsExporterParameter.OUTPUT_STREAM, out);
-                excelExporter.setParameter(JRXlsExporterParameter.IS_DETECT_CELL_TYPE, Boolean.TRUE);
-                excelExporter.setParameter(JRXlsExporterParameter.IS_WHITE_PAGE_BACKGROUND, Boolean.FALSE);
-                excelExporter.setParameter(JRXlsExporterParameter.IS_REMOVE_EMPTY_SPACE_BETWEEN_ROWS, Boolean.TRUE);
-                excelExporter.setParameter(JRXlsExporterParameter.IS_IGNORE_CELL_BORDER, Boolean.TRUE);
-                excelExporter.exportReport();
-            }
-        } catch (JRException e) {
-            throw new RuntimeException(e);
+            clean.append(ALLOWED_DIGITS.charAt(idx));
         }
-        log.info("file exported");
-        File file2 = new File(outFilePath);
-
-        if (outFilePath.split("\\.")[1].equalsIgnoreCase("xlsx")) {
-            try (FileInputStream fis = new FileInputStream(file2);
-                 Workbook workbook = new XSSFWorkbook(fis);
-                 ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-
-                // Write the workbook to the ByteArrayOutputStream
-                workbook.write(bos);
-                pdfContent = bos.toByteArray(); // Convert to a byte array
-            } catch (Exception e) {
-                log.severe("Exception Occurred " + e);
-            }
-        } else {
-            try (PDDocument document = PDDocument.load(file2); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-                document.save(outputStream);
-                pdfContent = outputStream.toByteArray();
-            } catch (IOException e) {
-                log.severe("{} File not found. Kindly try again." + outFilePath);
-                //   e.printStackTrace();
-            }
-            log.info("pdfContent generated");
-        }
-        return pdfContent;
-    }
-
-    @Override
-    public byte[] generateBranchListXlsx() throws JRException, SQLException {
-
-        try (Connection con = dataSource.getConnection()) {
-            log.info("Database connection obtained for Jasper report.");
-
-            String jrxmlName = "Frt_Branch_List";
-            InputStream jasperStream = getClass().getClassLoader().getResourceAsStream("jasper/" + jrxmlName + ".jasper");
-            if (jasperStream == null) {
-
-                throw new JRException("Jasper resource not found.");
-            }
-
-            Map<String, Object> parameters = new HashMap<>();
-            parameters.put(JRParameter.IS_IGNORE_PAGINATION, true);
-
-            // Fill the report
-            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperStream, parameters, con);
-            log.info("Jasper report filled successfully.");
-
-            // Export the report to XLSX format in memory
-            JRXlsxExporter exporter = new JRXlsxExporter();
-            ByteArrayOutputStream xlsxStream = new ByteArrayOutputStream();
-
-            exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
-            exporter.setExporterOutput(new SimpleOutputStreamExporterOutput(xlsxStream));
-
-            // Configure the exporter
-            SimpleXlsxReportConfiguration configuration = new SimpleXlsxReportConfiguration();
-            configuration.setDetectCellType(true);
-            configuration.setWhitePageBackground(false);
-            configuration.setRemoveEmptySpaceBetweenRows(true);
-            configuration.setIgnoreCellBorder(true);
-            exporter.setConfiguration(configuration);
-
-            exporter.exportReport();
-            log.info("Report exported to XLSX format in memory.");
-
-            return xlsxStream.toByteArray();
-
-        } catch (SQLException e) {
-
-            throw e;
-        } catch (JRException e) {
-
-            throw e;
-        }
+        return Integer.parseInt(clean.toString());
     }
 
 
 }
 
 
-Path Manipulation
-SCA
-4
-4
-WebInspect
-0
-0
-SecurityScope
-0
-0
-Total
-4
-4
-Critical
-URL: 0
-src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
-145 (Path Manipulation)
-Critical
-Issue Details
-Kingdom: Input Validation and Representation
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: previewDash(0)
-From: com.crs.dashboardService.controllers.DashBoardController.previewDash
-File: src/main/java/com/crs/dashboardService/controllers/DashBoardController.java:4
-5
-URL: 0
-42  }
-43 
-44  @RequestMapping("/previewDash")
-45  public ResponseEntity<ResponseVO> previewDash(@RequestBody Map<String, Object> payload) throws 
-SQLException {
-46  ResponseVO responseVO = new ResponseVO();
-47  Map<String, Object> dashPreview = lhoDashBoardService.dashPreview(payload);
-48  responseVO.setStatusCode(HttpStatus.OK.value());
-Sink Details
-Sink: java.io.File.File()
-Enclosing Method: jasperBuilder()
-File: src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java:145
-Taint Flags: WEB, XSS
-142  throw new RuntimeException(e);
-Nov 14, 2026, 7:34 PM
-© Copyright [2008-2026] Micro Focus or one of its affiliates.
-212
-Nov 14, 2026, 7:34 PM
-© Copyright [2008-2026] Micro Focus or one of its affiliates.
-213
-Path Manipulation Critical
-URL: 0
-src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
-145 (Path Manipulation) Critical
-143  }
-144  log.info("file exported");
-145  File file2 = new File(outFilePath);
-146 
-147  if (outFilePath.split("\\.")[1].equalsIgnoreCase("xlsx")) {
-148  try (FileInputStream fis = new FileInputStream(file2);
-src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
-87 (Path Manipulation) Critical
-Issue Details
-Kingdom: Input Validation and Representation
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: previewDash(0)
-From: com.crs.dashboardService.controllers.DashBoardController.previewDash
-File: src/main/java/com/crs/dashboardService/controllers/DashBoardController.java:4
-5
-URL: 0
-42  }
-43 
-44  @RequestMapping("/previewDash")
-45  public ResponseEntity<ResponseVO> previewDash(@RequestBody Map<String, Object> payload) throws 
-SQLException {
-46  ResponseVO responseVO = new ResponseVO();
-47  Map<String, Object> dashPreview = lhoDashBoardService.dashPreview(payload);
-48  responseVO.setStatusCode(HttpStatus.OK.value());
-Sink Details
-Sink: java.io.File.File()
-Enclosing Method: dashPreview()
-File: src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java:87
-Taint Flags: WEB, XSS
-84  String jasperFilePath = rootPath + "jasper" + File.separator + jrxmlName + ".jasper";
-85  Map<String, Object> param = new HashMap<>();
-86  String outFileDest = config.getProperty("REPORT_HOME_DIR") + "created/" + user.get("circleCode").toString();
-87  File outFile = new File(outFileDest);
-88  if (!outFile.exists()) {
-89  boolean pathCreation = outFile.mkdirs();
-90  if (pathCreation) {
-Nov 14, 2026, 7:34 PM
-© Copyright [2008-2026] Micro Focus or one of its affiliates.
-214
-Path Manipulation Critical
-URL: 0
-src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
-132 (Path Manipulation) Critical
-Issue Details
-Kingdom: Input Validation and Representation
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: previewDash(0)
-From: com.crs.dashboardService.controllers.DashBoardController.previewDash
-File: src/main/java/com/crs/dashboardService/controllers/DashBoardController.java:4
-5
-URL: 0
-42  }
-43 
-44  @RequestMapping("/previewDash")
-45  public ResponseEntity<ResponseVO> previewDash(@RequestBody Map<String, Object> payload) throws 
-SQLException {
-46  ResponseVO responseVO = new ResponseVO();
-47  Map<String, Object> dashPreview = lhoDashBoardService.dashPreview(payload);
-48  responseVO.setStatusCode(HttpStatus.OK.value());
-Sink Details
-Sink: java.io.FileOutputStream.FileOutputStream()
-Enclosing Method: jasperBuilder()
-File: src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java:132
-Taint Flags: WEB, XSS
-129  JasperExportManager.exportReportToPdfFile(jasperPrint, outFilePath);
-130  } else if (outFilePath.split("\\.")[1].equalsIgnoreCase("xlsx")) {
-131  JRXlsxExporter excelExporter = new JRXlsxExporter();
-132  OutputStream out = new FileOutputStream(outFilePath);
-133  excelExporter.setParameter(JRXlsExporterParameter.JASPER_PRINT, jasperPrint);
-134  excelExporter.setParameter(JRXlsExporterParameter.OUTPUT_STREAM, out);
-135  excelExporter.setParameter(JRXlsExporterParameter.IS_DETECT_CELL_TYPE, Boolean.TRUE);
-src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
-120 (Path Manipulation) Critical
-Issue Details
-Kingdom: Input Validation and Representation
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: previewDash(0)
-From: com.crs.dashboardService.controllers.DashBoardController.previewDash
-Nov 14, 2026, 7:34 PM
-© Copyright [2008-2026] Micro Focus or one of its affiliates.
-215
-Path Manipulation Critical
-URL: 0
-src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java, line 
-120 (Path Manipulation) Critical
-File: src/main/java/com/crs/dashboardService/controllers/DashBoardController.java:4
-5
-URL: 0
-42  }
-43 
-44  @RequestMapping("/previewDash")
-45  public ResponseEntity<ResponseVO> previewDash(@RequestBody Map<String, Object> payload) throws 
-SQLException {
-46  ResponseVO responseVO = new ResponseVO();
-47  Map<String, Object> dashPreview = lhoDashBoardService.dashPreview(payload);
-48  responseVO.setStatusCode(HttpStatus.OK.value());
-Sink Details
-Sink: java.io.File.File()
-Enclosing Method: jasperBuilder()
-File: src/main/java/com/crs/dashboardService/services/LHODashBoardServiceImpl.java:120
-Taint Flags: WEB, XSS
-117  JasperPrint jasperPrint;
-118  try {
-119  jasperPrint = JasperFillManager.fillReport(jasperFilePath, param, conn);
-120  File file = new File(outFileDest);
-121  log.info("file: {}" + file);
-122  if (!file.exists()) {
-123  log.info("file path does not exist!")
+this is the LHOEditBranchDetailsServiceImpl
+
+ public ResponseEntity submitDetails(Map<String, Object> map) throws ParseException {
+
+        ResponseVO responseVO = new ResponseVO<>();
+
+        log.info("inside submitdetails function service impl file");
+        log.info("map===" + map);
+
+        Map<String,Object> mapUser = (Map<String, Object>) map.get("user");
+        Map<String,Object> mapData = (Map<String, Object>) map.get("data");
+        Map<String,Object> mapData1 = (Map<String, Object>) mapData.get("data");
+        Map<String,Object> mapBranchData = (Map<String, Object>) mapData1.get("branchData");
+
+        log.info("mapUser===" + mapUser);
+        log.info("mapData===" + mapData);
+        log.info("mapBranchData===" + mapBranchData);
+
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+        Date BranchDate = dateFormat.parse((String) mapUser.get("quarterEndDate"));
+
+        log.info("quarterEndDate==="+mapUser.get("quarterEndDate"));
+        log.info("BranchDate==="+BranchDate);
+
+
+        String branchCode = (String) mapUser.get("branch_code");
+        String quarterEndDate = (String) mapUser.get("quarterEndDate");
+
+        String networkCode = (String) mapBranchData.get("NETWORK");
+        String moduleCode = (String) mapBranchData.get("MODULE");
+        String regionNo = (String) mapBranchData.get("REGION");
+
+        log.info("networkCode===" + networkCode);
+        log.info("moduleCode===" + moduleCode);
+        log.info("regionNo===" + regionNo);
+
+        Integer flag = -1;
+        String signFlag = (String) mapData1.get("updateFlag");
+        log.info("signFlag==="+signFlag);
+
+        try {
+            log.info("inside try block");
+            if(signFlag.equalsIgnoreCase("UPDATE_DETAILS_ONLY")|| signFlag.equalsIgnoreCase("UPDATE_ALL")) {
+
+                log.info("inside B A condition if");
+
+                String moduleNew = networkCode + moduleCode + regionNo;
+                log.info("moduleNew===" + moduleNew);
+
+                String regionCode = branchMasterRepository.getRegionCode((String) mapBranchData.get("CODE"));
+                log.info("regionCode===" + regionCode);
+
+                log.info("mapBranchData"+mapBranchData);
+
+                log.info("NAME=="+mapBranchData.get("NAME"));
+                log.info("NETWORK=="+mapBranchData.get("NETWORK"));
+                log.info("MODULE=="+mapBranchData.get("MODULE"));
+                log.info("moduleNew=="+moduleNew);
+                log.info("STDCODE=="+mapBranchData.get("STDCODE"));
+                log.info("PHONE=="+mapBranchData.get("PHONE"));
+                log.info("MOBILE=="+mapBranchData.get("MOBILE"));
+                log.info("ADDRESS=="+mapBranchData.get("ADDRESS"));
+                log.info("CITY=="+mapBranchData.get("CITY"));
+                log.info("STATE=="+mapBranchData.get("STATE"));
+                log.info("PIN=="+mapBranchData.get("PIN"));
+                log.info("IPPHONE=="+mapBranchData.get("IPPHONE"));
+                log.info("branchCode=="+branchCode);
+
+
+                flag = branchMasterRepository.updateQueryCrs((String) mapBranchData.get("NAME"), (String) mapBranchData.get("NETWORK"), (String) mapBranchData.get("MODULE"),
+                        moduleNew, (String) mapBranchData.get("STDCODE"), (String)  mapBranchData.get("PHONE"),  (String) mapBranchData.get("MOBILE"),  (String) mapBranchData.get("ADDRESS"),
+                        (String) mapBranchData.get("CITY"), (String)  mapBranchData.get("STATE"), (String)  mapBranchData.get("PIN"),  (String) mapBranchData.get("IPPHONE"),
+                        (String) mapBranchData.get("REGION"),  (String) mapBranchData.get("CODE"));
+                log.info("a===" + flag);
+
+                Integer flagTar = tarBranchRepository.updateQueryTar( (String) mapBranchData.get("NAME"),  (String) mapBranchData.get("NETWORK"),  (String) mapBranchData.get("MODULE"),
+                        moduleNew,  (String) mapBranchData.get("STDCODE"),  (String) mapBranchData.get("PHONE"),  (String) mapBranchData.get("MOBILE"),  (String) mapBranchData.get("ADDRESS"),
+                        (String) mapBranchData.get("CITY"),  (String) mapBranchData.get("STATE"),  (String) mapBranchData.get("PIN"), (String)  mapBranchData.get("IPPHONE"), 
+                        (String)  mapBranchData.get("REGION"), (String) mapBranchData.get("CODE"), quarterEndDate);
+                log.info("b===" + flagTar);
+
+                Integer flagLfar = lfarRepository.updateQueryLfar( (String) mapBranchData.get("NAME"),  (String) mapBranchData.get("NETWORK"),  (String) mapBranchData.get("MODULE"),
+                        moduleNew,  (String) mapBranchData.get("STDCODE"),  (String) mapBranchData.get("PHONE"),  (String) mapBranchData.get("MOBILE"), (String)  mapBranchData.get("ADDRESS"),
+                        (String)  mapBranchData.get("CITY"),  (String) mapBranchData.get("STATE"), (String)  mapBranchData.get("PIN"),  (String) mapBranchData.get("IPPHONE"),  
+                        (String)  mapBranchData.get("REGION") ,(String) mapBranchData.get("CODE"), quarterEndDate);
+                log.info("c===" + flagLfar);
+
+                if (regionCode.equals(moduleNew)) {
+                    log.info("inside checking region code checking===" + regionCode.equals(moduleNew));
+                    flag=1;
+                    //return flag;
+                } else {
+                    log.info("inside checking else condition===");
+                    int countcheck = 0;
+                    int countcheckTar = 0;
+                    int countCheckLfar = 0;
+
+                    countcheck = reportSubmissionRepository.countCheckCrs((String) mapBranchData.get("CODE"), quarterEndDate);
+                    log.info("x===" + countcheck);
+                    countcheckTar = tarReportsMasterListRepository.countCheckTar((String) mapBranchData.get("CODE"), quarterEndDate);
+                    log.info("y===" + countcheckTar);
+                    countCheckLfar = lfarReportsMasterListRepository.countCheckLfar((String) mapBranchData.get("CODE"), quarterEndDate);
+                    log.info("z===" + countCheckLfar);
+
+
+                    if (flag == 1) {
+                        log.info("inside setting rocode queries condition");
+                        if (countcheck > 0) {
+                            int flagCrsRo = reportSubmissionRepository.setRoCodeCrs(moduleNew, (String) mapBranchData.get("CODE"), quarterEndDate);
+                            log.info("1===" + flag);
+                            flag=1;
+                        }
+
+                        if (countcheckTar > 0) {
+                            int flagTarRo = tarReportsMasterListRepository.setRoCodeTar(moduleNew, (String) mapBranchData.get("CODE"), quarterEndDate);
+                            log.info("2===" + flag);
+                            flag=1;
+                        }
+
+                        if (countCheckLfar > 0) {
+                            int flagLfarRo = lfarReportsMasterListRepository.setRoCodeLfar(moduleNew, (String) mapBranchData.get("CODE"),quarterEndDate);
+                            log.info("3===" + flag);
+                            flag=1;
+                        }
+                    }
+                }
+            }
+
+            if(signFlag.equalsIgnoreCase("UPDATE_SIGNATURES_ONLY")|| signFlag.equalsIgnoreCase("UPDATE_ALL")){
+                log.info("inside C A condition of if");
+
+                String crs_auditable = (String) mapBranchData.get("AUDITABLE");
+                log.info("crs_auditable---"+crs_auditable);
+                int res;
+                if (crs_auditable.equalsIgnoreCase("A") || crs_auditable.equalsIgnoreCase("I")) {
+                    log.info("crs auditable query condition");
+                    res = brDetailsRepository.updateAudDigitalSign((String) mapBranchData.get("CHECKERSIGNATURE"), (String) mapBranchData.get("AUDITORSIGNATURE"), (String) mapBranchData.get("CODE"));
+                } else {
+                    log.info("else");
+                    log.info("crs non auditable query condition");
+                    res = brDetailsRepository.updateDigitalSign((String) mapBranchData.get("CHECKERSIGNATURE"), (String) mapBranchData.get("CODE"));
+                }
+
+                if (res == 1) {
+                    flag=1;
+                    log.info(String.valueOf(flag));
+                }
+            }
+
+            if (flag > 0) {
+                log.info("inside audi trail insertion function");
+                String Action = "BRANCH DETAILS UPDATION";
+                Integer UserId = (Integer) mapUser.get("pf_number");
+                String desc = UserId + "~" + (String) mapBranchData.get("CODE") + "~" + mapUser.get("user_role");
+                log.info("desc===" + desc);
+
+                CrsAudiTrail crsAudiTrail = new CrsAudiTrail();
+                log.info("crsAudiTrail==="+crsAudiTrail);
+                crsAudiTrail.setCrsAudiTrailBrch((String) mapBranchData.get("CODE"));
+                crsAudiTrail.setCrsAudiTrailDt(BranchDate);
+                crsAudiTrail.setCrsAudiTrailMaker(String.valueOf(UserId));
+                crsAudiTrail.setCrsAudiTrailAction(Action);
+                crsAudiTrail.setCrsAudiTrailName(String.valueOf(UserId));
+                crsAudiTrail.setCrsAudiTrailDesc(desc);
+
+                log.info("crsAudiTrail==="+crsAudiTrail);
+
+                CrsAudiTrail i = crsAudiTrailRepository.save(crsAudiTrail);
+                log.info("crsAudiTrail==="+i);
+                if(i!=null){
+                    flag=1;
+                }
+            }
+            int result = flag;
+            responseVO.setStatusCode(HttpStatus.OK.value());
+            responseVO.setMessage("data saved successfully");
+            responseVO.setResult(result);
+        } catch (DataAccessException e) {
+            log.info("DataAccessException");
+            responseVO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+            responseVO.setMessage("Exception occurred" );
+        }
+        return new ResponseEntity(responseVO,HttpStatus.OK);
+    }
+
+
+    @Override
+    public ResponseEntity<String> digitalSign(Map<String,Object> map){
+        Map<String, Object> mapUser = (Map<String, Object>) map.get("user");
+        log.info("inside digital sign");
+        log.info("map==="+map);
+
+
+        ResponseVO<List> responseVO = new ResponseVO<>();
+        try {
+            List result = branchMasterRepository.digitalSign((String) mapUser.get("BranchCode"));
+            responseVO.setStatusCode(HttpStatus.OK.value());
+            responseVO.setMessage("data fetched successfully");
+            responseVO.setResult(result);
+        } catch (Exception e) {
+            responseVO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+            responseVO.setMessage("Exception occurred" + e.getMessage());
+        }
+        return new ResponseEntity(responseVO, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Map<String, Object>> fetchBranchDetails(Map<String, Object> map) {
+        Map<String, Object> mapData = (Map<String, Object>) map.get("data");
+        log.info("mapData==="+mapData);
+
+        ResponseVO<Map<String, Object>> responseVO = new ResponseVO<>();
+        try {
+            Map<String, Object> branchDetails = branchMasterRepository.getBranchListForFrt(String.valueOf(mapData.get("branchCode")));
+            Map<String, Object> auditorData = brDetailsRepository.getAuditorData((String.valueOf(mapData.get("branchCode"))));
+            List<String> circleList = crsSysParamRepository.getCircleList();
+            Integer crsRequestPending = null;
+            if(mapData.get("quarterEndDate") != null) {
+                 crsRequestPending = crsAudiTrailRepository.checkIfCrsRequestIsPending(String.valueOf(mapData.get("branchCode")),
+                        String.valueOf(mapData.get("quarterEndDate")),
+                        String.valueOf(mapData.get("reqType")),
+                        String.valueOf(mapData.get("reqSubType")));
+            }
+
+            Map<String, Object> resultMap = new HashMap<>();
+            resultMap.put("branchData",branchDetails);
+            resultMap.put("auditorData",auditorData);
+            resultMap.put("circleList",circleList);
+            resultMap.put("isRequestPending",crsRequestPending);
+            responseVO.setStatusCode(HttpStatus.OK.value());
+            responseVO.setMessage("data fetched successfully");
+            responseVO.setResult(resultMap);
+        } catch (Exception e) {
+            responseVO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+            responseVO.setMessage("Exception occurred" + e.getMessage());
+        }
+        return new ResponseEntity(responseVO, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Map<String, Object>> fetchBranchDetailsCbs(Map<String, Object> map) {
+        Map<String, Object> mapData = (Map<String, Object>) map.get("data");
+        log.info("inside fetchBranchDetailsCbs");
+        log.info("branch :: "+String.valueOf(mapData.get("branchCode")));
+        log.info("mapData==="+mapData);
+
+        ResponseVO<Map<String, Object>> responseVO = new ResponseVO<>();
+        try {
+            Map<String, Object> branchDetails = cbsBrhmRepository.getBranchListForFrt(String.valueOf(mapData.get("branchCode")));
+            Map<String, Object> auditorData = brDetailsRepository.getAuditorData((String.valueOf(mapData.get("branchCode"))));
+            List<String> circleList = crsSysParamRepository.getCircleList();
+
+            log.info(String.valueOf(branchDetails.get("code")));
+            log.info(String.valueOf(branchDetails.get("network")));
+            log.info(String.valueOf(branchDetails.get("auditable")));
+            log.info(String.valueOf(branchDetails.get("name")));
+
+            Map<String, Object> resultMap = new HashMap<>();
+            resultMap.put("branchData",branchDetails);
+            resultMap.put("auditorData",auditorData);
+            resultMap.put("circleList",circleList);
+            responseVO.setStatusCode(HttpStatus.OK.value());
+            responseVO.setMessage("data fetched successfully");
+            responseVO.setResult(resultMap);
+        } catch (Exception e) {
+            responseVO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+            responseVO.setMessage("Exception occurred" + e.getMessage());
+        }
+        return new ResponseEntity(responseVO, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Map<String, Object>> fetchReports(Map<String, Object> map) {
+        Map<String, Object> mapUser = (Map<String, Object>) map.get("user");
+        Map<String, Object> mapData = (Map<String, Object>) map.get("data");
+        log.info("inside fetchReports");
+        log.info("map==="+map);
+
+        String branch = String.valueOf(mapData.get("branchCode"));
+        String qed = String.valueOf(mapUser.get("quarterEndDate"));
+
+        ResponseVO<Map<String, Object>> responseVO = new ResponseVO<>();
+        try {
+            List<Map<String, Object>> reportList = reportSubmissionRepository.getAllReportList(branch, qed);
+            
+            Map<String, Object> resultMap = new HashMap<>();
+
+            resultMap.put("reportList",reportList);
+            
+            responseVO.setStatusCode(HttpStatus.OK.value());
+            responseVO.setMessage("data fetched successfully");
+            responseVO.setResult(resultMap);
+        } catch (Exception e) {
+            responseVO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+            responseVO.setMessage("Exception occurred" + e.getMessage());
+        }
+        return new ResponseEntity(responseVO, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Map<String, Object>> frtSubmitData(Map<String, Object> map) {
+        Map<String, Object> mapUser = (Map<String, Object>) map.get("user");
+        Map<String, Object> mapData = (Map<String, Object>) map.get("data");
+        log.info("inside fetchReports");
+        log.info("map==="+map);
+
+        Map<String, Object> branchData = (Map<String, Object>) mapData.get("branchData");
+
+        log.info("branchData==="+branchData);
+
+        String branchCode = String.valueOf(branchData.get("CODE"));
+
+        String scope = String.valueOf(branchData.get("SCOPE"));
+
+        ResponseVO<Map<String, Object>> responseVO = new ResponseVO<>();
+
+        Map<String, Object> resultMap = new HashMap<>();
+
+        String message = "";
+
+
+        try {
+            if(scope.equalsIgnoreCase("O")) {
+                int res = branchMasterRepository.deleteBranch(branchCode);
+                message = "The branch "+branchCode+" has been successfully deleted.";
+                resultMap.put("status", res == 1);
+            } else if (scope.equalsIgnoreCase("I")) {
+
+                BranchMaster branchRowData = branchMasterRepository.findByBranchNo(branchCode);
+
+                if(branchRowData != null) {
+                    branchRowData.setBranchNo(String.valueOf(branchData.get("CODE")));
+                    branchRowData.setNetworkCode(String.valueOf(branchData.get("NETWORK")));
+                    branchRowData.setModuleCode(String.valueOf(branchData.get("MODULE")));
+                    branchRowData.setCrsAuditable(String.valueOf(branchData.get("AUDITABLE")));
+                    branchRowData.setPostCode(String.valueOf(branchData.get("PIN")));
+                    branchRowData.setStdCode(String.valueOf(branchData.get("STDCODE")));
+                    branchRowData.setPhoneNo(String.valueOf(branchData.get("PHONE")));
+                    branchRowData.setBrName(String.valueOf(branchData.get("NAME")));
+                    branchRowData.setAddress1(String.valueOf(branchData.get("ADDRESS")));
+                    branchRowData.setAddress2(String.valueOf(branchData.get("CITY")));
+                    branchRowData.setAddress3(String.valueOf(branchData.get("STATE")));
+                    branchRowData.setManMobiPhone(String.valueOf(branchData.get("MOBILE")));
+                    branchRowData.setCircleCode(String.valueOf(branchData.get("CIRCLE")));
+                    branchRowData.setRegionNo(String.valueOf(branchData.get("REGION")));
+                    branchRowData.setVoidPhoneNo(String.valueOf(branchData.get("IPPHONE")));
+                    branchRowData.setRegionCode(String.valueOf(branchData.get("NETWORK")) + String.valueOf(branchData.get("MODULE")) + String.valueOf(branchData.get("REGION")));
+
+                    branchMasterRepository.save(branchRowData);
+
+                    message = "The branch "+branchCode+" has been successfully updated.";
+
+                    resultMap.put("status", true);
+                } else {
+                    BranchMaster newBranchRowData = new BranchMaster();
+                    newBranchRowData.setBranchNo(String.valueOf(branchData.get("CODE")));
+                    newBranchRowData.setNetworkCode(String.valueOf(branchData.get("NETWORK")));
+                    newBranchRowData.setModuleCode(String.valueOf(branchData.get("MODULE")));
+                    newBranchRowData.setCrsAuditable(String.valueOf(branchData.get("AUDITABLE")));
+                    newBranchRowData.setPostCode(String.valueOf(branchData.get("PIN")));
+                    newBranchRowData.setStdCode(String.valueOf(branchData.get("STDCODE")));
+                    newBranchRowData.setPhoneNo(String.valueOf(branchData.get("PHONE")));
+                    newBranchRowData.setBrName(String.valueOf(branchData.get("NAME")));
+                    newBranchRowData.setAddress1(String.valueOf(branchData.get("ADDRESS")));
+                    newBranchRowData.setAddress2(String.valueOf(branchData.get("CITY")));
+                    newBranchRowData.setAddress3(String.valueOf(branchData.get("STATE")));
+                    newBranchRowData.setManMobiPhone(String.valueOf(branchData.get("MOBILE")));
+                    newBranchRowData.setCircleCode(String.valueOf(branchData.get("CIRCLE")));
+                    newBranchRowData.setRegionNo(String.valueOf(branchData.get("REGION")));
+                    newBranchRowData.setVoidPhoneNo(String.valueOf(branchData.get("IPPHONE")));
+                    newBranchRowData.setRegionCode(String.valueOf(branchData.get("NETWORK")) + String.valueOf(branchData.get("MODULE")) + String.valueOf(branchData.get("REGION")));
+
+                    branchMasterRepository.save(newBranchRowData);
+
+                    message = "The branch "+branchCode+" has been successfully created.";
+
+                    resultMap.put("status", true);
+                }
+            }
+
+
+            responseVO.setStatusCode(HttpStatus.OK.value());
+            responseVO.setMessage(message);
+            responseVO.setResult(resultMap);
+        } catch (Exception e) {
+            responseVO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+            responseVO.setMessage("Exception occurred" + e.getMessage());
+            resultMap.put("status", false);
+        }
+        responseVO.setResult(resultMap);
+        return new ResponseEntity(responseVO, HttpStatus.OK);
+    }
+
+    //Added By v1019094
+    @Override
+    public ResponseEntity<Map<String, Object>> frtSubmitRequest(Map<String, Object> map) {
+        Map<String, Object> mapUser = (Map<String, Object>) map.get("user");
+        Map<String, Object> mapData = (Map<String, Object>) map.get("data");
+        log.info("Inside frtSubmitRequest");
+        Map<String, Object> branchData = (Map<String, Object>) mapData.get("branchData");
+        log.info("branchData :"+branchData);
+        String branchCode = String.valueOf(branchData.get("CODE"));
+        String scope = String.valueOf(branchData.get("SCOPE"));
+        ResponseVO<Map<String, Object>> responseVO = new ResponseVO<>();
+        Map<String, Object> resultMap = new HashMap<>();
+        CbsBrhm savedEntity = null;
+        String quarterEndDate = String.valueOf(mapUser.get("quarterEndDate"));
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        LocalDate qedDate = LocalDate.parse(quarterEndDate, formatter);
+        try {
+            //For Add Branch
+           if (scope.equalsIgnoreCase("I")) {
+                CbsBrhm branchRowData = cbsBrhmRepository.findCbsBrhmByBranchNo(branchCode);
+                if(branchRowData != null && branchRowData.getBranchNo() != null) {
+                    branchRowData.setBranchNo(String.valueOf(branchData.get("CODE")));
+                    branchRowData.setNetworkCode(String.valueOf(branchData.get("NETWORK")));
+                    branchRowData.setModuleCode(String.valueOf(branchData.get("MODULE")));
+                    branchRowData.setCrsAuditable(String.valueOf(branchData.get("AUDITABLE")));
+                    branchRowData.setPostCode(String.valueOf(branchData.get("PIN")));
+                    branchRowData.setStdCode(String.valueOf(branchData.get("STDCODE")));
+                    branchRowData.setPhoneNo(String.valueOf(branchData.get("PHONE")));
+                    branchRowData.setBrName(String.valueOf(branchData.get("NAME")));
+                    branchRowData.setAddress1(String.valueOf(branchData.get("ADDRESS")));
+                    branchRowData.setAddress2(String.valueOf(branchData.get("CITY")));
+                    branchRowData.setAddress3(String.valueOf(branchData.get("STATE")));
+                    branchRowData.setManMobiPhone(String.valueOf(branchData.get("MOBILE")));
+                    branchRowData.setCircleCode(String.valueOf(branchData.get("CIRCLE")));
+                    branchRowData.setRegionNo(String.valueOf(branchData.get("REGION")));
+                    branchRowData.setVoidPhoneNo(String.valueOf(branchData.get("IPPHONE")));
+                    branchRowData.setRegionCode(String.valueOf(branchData.get("NETWORK")) + String.valueOf(branchData.get("MODULE")) + String.valueOf(branchData.get("REGION")));
+                    savedEntity = cbsBrhmRepository.save(branchRowData);
+                }
+                if(savedEntity != null) {
+                    CrsRequestTrack crsRequestTrack = new CrsRequestTrack();
+                    crsRequestTrack.setRtBranch(branchCode);
+                    crsRequestTrack.setRtMaker(String.valueOf(mapUser.get("pf_number")));
+                    crsRequestTrack.setRtStatus(Integer.parseInt("1"));
+                    crsRequestTrack.setRtType("B");
+                    crsRequestTrack.setRtSubType("A");
+                    crsRequestTrack.setRtQed(qedDate);
+                    crsRequestTrackRepository.save(crsRequestTrack);
+                    resultMap.put("status", true);
+                }
+            }
+            //For Delete Branch
+            if (scope.equalsIgnoreCase("O")) {
+                CrsRequestTrack crsRequestTrack = new CrsRequestTrack();
+                crsRequestTrack.setRtBranch(branchCode);
+                crsRequestTrack.setRtMaker(String.valueOf(mapUser.get("pf_number")));
+                crsRequestTrack.setRtStatus(Integer.parseInt("1"));
+                crsRequestTrack.setRtType("B");
+                crsRequestTrack.setRtSubType("D");
+                crsRequestTrack.setRtQed(qedDate);
+                crsRequestTrackRepository.save(crsRequestTrack);
+                resultMap.put("status", true);
+            }
+            responseVO.setStatusCode(HttpStatus.OK.value());
+            responseVO.setMessage("Request submitted successfully.");
+            responseVO.setResult(resultMap);
+        } catch (Exception e) {
+            responseVO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+            responseVO.setMessage("Exception occurred" );
+            resultMap.put("status", false);
+        }
+        responseVO.setResult(resultMap);
+        return new ResponseEntity(responseVO, HttpStatus.OK);
+    }
+
+    //Added by v1019094
+    @Override
+    public ResponseEntity<List<Map<String, Object>>> fetchCrsRequests(Map<String, Object> map) {
+        Map<String, Object> userData = (Map<String, Object>) map.get("user");
+        Map<String, Object> data = (Map<String, Object>) map.get("data");
+        List<Map<String, Object>> resultList = new ArrayList<Map<String, Object>>();
+        ResponseVO<List<Map<String, Object>> > responseVO = new ResponseVO<>();
+        try {
+            resultList = crsRequestTrackRepository.fetchCrsRequests(String.valueOf(userData.get("quarterEndDate")));
+            responseVO.setStatusCode(HttpStatus.OK.value());
+            responseVO.setMessage("Request submitted successfully.");
+            responseVO.setResult(resultList);
+        }catch(Exception e){
+            resultList = null;
+        }
+        return new ResponseEntity(responseVO, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Map<String, Object>> cancelCrsRequests(Map<String, Object> map) {
+        Map<String, Object> userData = (Map<String, Object>) map.get("user");
+        Map<String, Object> data = (Map<String, Object>) map.get("data");
+        int count = 0;
+        ResponseVO<Map<String, Object>> responseVO = new ResponseVO<>();
+        try{
+           count =  crsRequestTrackRepository.updateCrsRequests(String.valueOf(data.get("reqId")), String.valueOf(data.get("rtStatus")), String.valueOf(data.get("userId")));
+           if(data.get("reqType") != null && String.valueOf(data.get("reqType")).equalsIgnoreCase("Audit Status")){
+               crsAuditStatusRepository.updateAuditStatus(String.valueOf(data.get("reqId")), String.valueOf(userData.get("quarterEndDate")), String.valueOf(data.get("branchcode")));
+           }
+           if(count > 0){
+               responseVO.setStatusCode(HttpStatus.OK.value());
+               responseVO.setMessage("Request cancelled successfully.");
+           }
+
+        } catch (Exception e) {
+            responseVO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+            responseVO.setMessage("Request not cancelled" + e.getMessage());
+        }
+        return new ResponseEntity(responseVO, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Map<String, Object>> crsAuditStatusChangeRequest(Map<String, Object> map) {
+        Map<String, Object> userData = (Map<String, Object>) map.get("user");
+        Map<String, Object> data = (Map<String, Object>) map.get("data");
+        ResponseVO<Map<String, Object>> responseVO = new ResponseVO<>();
+        try{
+            String quarterEndDate = String.valueOf(userData.get("quarterEndDate"));
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            LocalDate qedDate = LocalDate.parse(quarterEndDate, formatter);
+            String branchCode = String.valueOf(data.get("branchCode"));
+            String auditSts = String.valueOf(data.get("auditSts"));
+            CrsRequestTrack crsRequestTrack = new CrsRequestTrack();
+            crsRequestTrack.setRtBranch(branchCode);
+            crsRequestTrack.setRtMaker(String.valueOf(userData.get("pf_number")));
+            crsRequestTrack.setRtStatus(Integer.parseInt("1"));
+            crsRequestTrack.setRtType("A");
+            crsRequestTrack.setRtSubType("S");
+            crsRequestTrack.setRtQed(qedDate);
+            crsRequestTrack = crsRequestTrackRepository.save(crsRequestTrack);
+            if(crsRequestTrack.getRtId() != null){
+            CrsAuditStatus crsAuditStatus = new CrsAuditStatus();
+            crsAuditStatus.setAsRtId(crsRequestTrack.getRtId());
+            crsAuditStatus.setAsQed(qedDate);
+            crsAuditStatus.setAsBranch(branchCode);
+            crsAuditStatus.setAsNewStatus(auditSts);
+            crsAuditStatus.setAsReqStatus("P");
+            crsAuditStatusRepository.save(crsAuditStatus);
+            }
+            responseVO.setStatusCode(HttpStatus.CREATED.value());
+            responseVO.setMessage("Request Created successfully.");
+
+        } catch (Exception e) {
+            responseVO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+            responseVO.setMessage("Request Not Created.");
+        }
+        return new ResponseEntity(responseVO, HttpStatus.OK);
+    }
+
+
+    @Override
+    public  ResponseEntity<List<Map<String, Object>>> getPendingRequests(Map<String, Object> map) {
+        Map<String, Object> userData = (Map<String, Object>) map.get("user");
+        List<Map<String, Object>> resultList = new ArrayList<Map<String, Object>>();
+        ResponseVO<List<Map<String, Object>> > responseVO = new ResponseVO<>();
+        try {
+            resultList = crsRequestTrackRepository.findPendingRequests(String.valueOf(userData.get("quarterEndDate")));
+            responseVO.setStatusCode(HttpStatus.OK.value());
+            responseVO.setMessage("Request submitted successfully.");
+            responseVO.setResult(resultList);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return new ResponseEntity(responseVO, HttpStatus.OK);
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<Map<String, Object>> approveRequests(Map<String, Object> payload) {
+        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> data = (Map<String, Object>) payload.get("data");
+        List<Integer> requestIds = (List<Integer>) data.get("requestIds");
+        String quarterDate = (String) data.get("quarterDate");
+        String userId = String.valueOf(data.get("userId")) ;
+
+        if (requestIds == null || requestIds.isEmpty() || quarterDate == null) {
+            response.put("message", "Bad Request: 'requestIds' and 'quarterDate' are required.");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        List<Integer> records = crsAuditStatusRepository.fetchCrsAuditIds(requestIds,quarterDate);
+        int successCount = 0;
+        try {
+            for (Integer reqId : records) {
+
+                List<Object[]> resultList = crsAuditStatusRepository.findRequestDetailsById(String.valueOf(reqId), quarterDate);
+                if (resultList == null) continue;
+                Object[] details = resultList.get(0);
+                String branchCode = String.valueOf(details[0]) ;
+                String beforeSts = String.valueOf(details[1]);
+                String afterSts = String.valueOf(details[2]);
+                String ifcofrFlagForUpdate = "IFCOFR Audited".equalsIgnoreCase(afterSts) ? "Y" : "N";
+
+                String marQuarter = quarterDate.substring(3, 5);
+
+                if ("Non-Audited".equalsIgnoreCase(beforeSts) && "Audited".equalsIgnoreCase(afterSts)) {
+                    crsAuditStatusRepository.updateBranchMaster("A", branchCode);
+                    crsAuditStatusRepository.updateReportsMasterListAuditable("Y", branchCode, quarterDate);
+                    crsAuditStatusRepository.updateReportsStatusAboveThreshold("29", branchCode, quarterDate);
+                    if ("03".equals(marQuarter)) {
+                        crsAuditStatusRepository.updateLfarBranch("Y", branchCode, quarterDate);
+                    }
+                } else if ("Non-Audited".equalsIgnoreCase(beforeSts) && "IFCOFR Audited".equalsIgnoreCase(afterSts)) {
+                    crsAuditStatusRepository.updateBranchMaster("I", branchCode);
+                    crsAuditStatusRepository.updateReportsMasterListAuditable("Y", branchCode, quarterDate);
+                    crsAuditStatusRepository.updateReportsStatusAboveThreshold("29", branchCode, quarterDate);
+                    //crsAuditStatusRepository.updateIfcofrAudit(ifcofrFlagForUpdate, userId, branchCode, quarterDate);
+                    if ("03".equals(marQuarter)) {
+                        crsAuditStatusRepository.updateLfarBranch("Y", branchCode, quarterDate);
+                    }
+                } else if ("Audited".equalsIgnoreCase(beforeSts) && "IFCOFR Audited".equalsIgnoreCase(afterSts)) {
+                    //crsAuditStatusRepository.updateIfcofrAudit(ifcofrFlagForUpdate, userId, branchCode, quarterDate);
+                    crsAuditStatusRepository.updateBranchMaster("I", branchCode);
+                    crsAuditStatusRepository.updateReport1033Status("39", branchCode, quarterDate);
+                } else if ("Audited".equalsIgnoreCase(beforeSts) && "Non-Audited".equalsIgnoreCase(afterSts)) {
+                    crsAuditStatusRepository.updateBranchMaster("N", branchCode);
+                    crsAuditStatusRepository.updateReportsMasterListAuditable("N", branchCode, quarterDate);
+                    crsAuditStatusRepository.deleteReportsMasterListByReportId("1033", branchCode, quarterDate);
+                    crsAuditStatusRepository.updateReportsStatusAboveThreshold("29", branchCode, quarterDate);
+                    if ("03".equals(marQuarter)) {
+                        crsAuditStatusRepository.updateLfarBranch("N", branchCode, quarterDate);
+                        crsAuditStatusRepository.deleteLfarReportsMasterList(branchCode, quarterDate);
+                    }
+                } else if ("IFCOFR Audited".equalsIgnoreCase(beforeSts) && "Audited".equalsIgnoreCase(afterSts)) {
+                    //crsAuditStatusRepository.updateIfcofrAudit(ifcofrFlagForUpdate, userId, branchCode, quarterDate);
+                    crsAuditStatusRepository.updateBranchMaster("A", branchCode);
+                    crsAuditStatusRepository.deleteReportsMasterListByReportId("4065", branchCode, quarterDate);
+                    crsAuditStatusRepository.updateReport1033Status("39", branchCode, quarterDate);
+                } else if ("IFCOFR Audited".equalsIgnoreCase(beforeSts) && "Non-Audited".equalsIgnoreCase(afterSts)) {
+                    crsAuditStatusRepository.updateBranchMaster("N", branchCode);
+                    crsAuditStatusRepository.updateReportsMasterListAuditable("N", branchCode, quarterDate);
+                    //crsAuditStatusRepository.updateIfcofrAudit(ifcofrFlagForUpdate, userId, branchCode, quarterDate);
+                    crsAuditStatusRepository.updateReportsStatusAboveThreshold("29", branchCode, quarterDate);
+                    crsAuditStatusRepository.deleteReportsMasterListByReportId("4065", branchCode, quarterDate);
+                    crsAuditStatusRepository.deleteReportsMasterListByReportId("1033", branchCode, quarterDate);
+                    if ("03".equals(marQuarter)) {
+                        crsAuditStatusRepository.updateLfarBranch("N", branchCode, quarterDate);
+                        crsAuditStatusRepository.deleteLfarReportsMasterList(branchCode, quarterDate);
+                    }
+                }
+                crsAuditStatusRepository.updateRequestStatus(String.valueOf(reqId), "A");
+              //  crsAuditStatusRepository.updateCrsRequestStatus(String.valueOf(reqId), "2");
+                successCount++;
+            }
+            for(Integer ids : requestIds) {
+                crsAuditStatusRepository.updateCrsRequestStatus(SanitizeUtil.sanitizeSegment(String.valueOf(ids),  "ids"), "2", SanitizeUtil.sanitizeSegment(userId, "userid"));
+            }
+            response.put("message", successCount + " request(s) approved successfully.");
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e) {
+            response.put("message", "An internal error occurred during approval.");
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<Map<String, Object>> rejectRequests(Map<String, Object> payload) {
+        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> data = (Map<String, Object>) payload.get("data");
+        List<Integer> requestIds = (List<Integer>) data.get("requestIds");
+        String quarterDate = (String) data.get("quarterDate");
+        String userId = String.valueOf(data.get("userId")) ;
+
+        if (requestIds == null || requestIds.isEmpty()) {
+            response.put("message", "Bad Request: No request IDs provided.");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+        List<Integer> records = crsAuditStatusRepository.fetchCrsAuditIds(requestIds,quarterDate);
+
+        try {
+            for (Integer reqId : records) {
+                crsAuditStatusRepository.updateRequestStatus(String.valueOf(reqId), "R"); // 'R' for Rejected
+            }
+            for(Integer ids : requestIds) {
+                crsAuditStatusRepository.updateCrsRequestStatus(SanitizeUtil.sanitizeSegment(String.valueOf(ids),  "ids"), "3", SanitizeUtil.sanitizeSegment(userId, "userid")); 
+            }
+            response.put("message", requestIds.size() + " request(s) rejected successfully.");
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e) {
+            response.put("message", "An error occurred during rejection.");
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
