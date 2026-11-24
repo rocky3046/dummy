@@ -1,4 +1,5 @@
-    @Override
+1.
+@Override
     public Map<String, Object> getLfarDownloadReportList(Map<String, Object> payload) {
         Map<String, Object> user = (Map<String, Object>) payload.get("user");
         Map<String, Object> data = (Map<String, Object>) payload.get("data");
@@ -96,4 +97,215 @@ Taint Flags: WEB, XSS
 106  File file2 = new File(outFilePath);
 107  pdfContent = FileUtils.readFileToByteArray(file2);
 108 
-109  } catch (IOException | SQLException | JRException e) {
+109  } catch (IOException | SQLException | JRException e) 
+
+------------------------------------------------------------------------
+2.
+    @Override
+    public Map<String, Object> dashboardPreview(Map<String, Object> payload) {
+        Map<String,Object> user = (Map<String, Object>) payload.get("user");
+        Map<String,Object> data = (Map<String, Object>) payload.get("data");
+        Map<String,Object> result = new HashMap<>();
+        log.info("data: "+data);
+        log.info("user: "+user);
+        log.info(user.get("circleCode").toString());
+        log.info(user.get("roCode").toString());
+        String code = user.get("circleCode").toString() + user.get("roCode").toString();
+        String quarterDate = user.get("quarterEndDate").toString();
+        String jrxmlName = data.get("jrxmlName").toString();
+        log.info("jrxmlName ::"+jrxmlName);
+        
+        Map<String, Object> pdfCont = new HashMap<>();
+
+        Connection conn;
+        String rootPath = Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource("")).getPath();
+        log.info("");
+        String configPath = rootPath + "common.properties";
+        byte[] pdfContent;
+        try {
+            Properties config = new Properties();
+            config.load(new FileInputStream(configPath));
+            conn = dataSource.getConnection();
+            String jasperFilePath = rootPath + "jasper" + File.separator + jrxmlName + ".jasper";
+            Map<String, Object> param = new HashMap<>();
+            String outFileDest = config.getProperty("REPORT_HOME_DIR") + "created/" + user.get("circleCode").toString() + File.separator + user.get("roCode").toString();
+            File outFile = new File(outFileDest);
+            
+            if (!outFile.exists()) {
+                boolean pathCreation = outFile.mkdirs();
+                if (pathCreation) {
+                    log.info("outFilePath created");
+                }
+            }
+            String outFilePath = outFileDest + File.separator + code.substring(3) + ".pdf";
+            param.put("CODE", code);
+            param.put("DATE", quarterDate);
+            pdfContent = jasperBuilder(jasperFilePath, param, conn, outFilePath, outFileDest);
+            pdfCont.put("pdfContent", pdfContent);
+            log.info("pdfContent added to map");
+        } catch (IOException | SQLException e) {
+            log.severe("Exception Occurred "+ e);
+        }
+        return pdfCont;
+    }
+
+     private static byte[] jasperBuilder(String jasperFilePath, Map<String, Object> param, Connection conn, String outFilePath, String outFileDest) throws IOException {
+        byte[] pdfContent = new byte[0];
+        JasperPrint jasperPrint;
+        try {
+            jasperPrint = JasperFillManager.fillReport(jasperFilePath, param, conn);
+            File file = new File(outFileDest);
+            log.info("file: {}"+ file);
+            if (!file.exists()) {
+                log.info("file path does not exist!");
+                file.mkdirs();
+            }
+            log.info("file path exists");
+       
+
+            JasperExportManager.exportReportToPdfFile(jasperPrint, outFilePath);
+        } catch (JRException e) {
+            throw new RuntimeException(e);
+        }
+        log.info("file exported");
+        File file2 = new File(outFilePath);
+        ByteArrayOutputStream outputStream = null;
+        try (PDDocument document = PDDocument.load(file2)) {
+            outputStream = new ByteArrayOutputStream();
+            document.save(outputStream);
+            pdfContent = outputStream.toByteArray();
+        } catch (IOException e) {
+            log.severe("{} File not found. Kindly try again."+ outFilePath);
+        } finally {
+            assert outputStream != null;
+            outputStream.close();
+        }
+        log.info("pdfContent generated");
+        return pdfContent;
+    }
+
+Path Manipulation
+SCA
+4
+4
+WebInspect
+0
+0
+SecurityScope
+0
+0
+Total
+4
+4
+Critical
+URL: 0
+src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
+LfarLHoManagerServiceImpl.java, line 239 (Path Manipulation)
+Critical
+Issue Details
+Kingdom: Input Validation and Representation
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: previewDash(0)
+From: com.lfar.LfarLHOManagerServiceApi.controllers.DashboardReportsController.prev
+iewDash
+File: src/main/java/com/lfar/LfarLHOManagerServiceApi/controllers/DashboardReportsC
+ontroller.java:59
+URL: 0
+56 
+57 
+58  @RequestMapping("/previewDash")
+59  public ResponseEntity<ResponseVO> previewDash(@RequestBody Map<String, Object> payload){
+60  ResponseVO responseVO = new ResponseVO();
+61  Map<String, Object> dashPreview = lfarLhoReportService.dashboardPreview(payload);
+62  responseVO.setStatusCode(HttpStatus.OK.value());
+Sink Details
+Sink: java.io.File.File()
+Enclosing Method: jasperBuilder()
+File: src/main/java/com/lfar/LfarLHOManagerServiceApi/services/LfarLHoManagerServiceImpl.java:239
+Taint Flags: WEB, XSS
+236  JasperPrint jasperPrint;
+Nov 14, 2026, 8:06 PM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+157
+Nov 14, 2026, 8:06 PM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+158
+Path Manipulation Critical
+URL: 0
+src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
+LfarLHoManagerServiceImpl.java, line 239 (Path Manipulation) Critical
+237  try {
+238  jasperPrint = JasperFillManager.fillReport(jasperFilePath, param, conn);
+239  File file = new File(outFileDest);
+240  log.info("file: {}"+ file);
+241  if (!file.exists()) {
+242  log.info("file path does not exist!");
+src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
+LfarLHoManagerServiceImpl.java, line 214 (Path Manipulation) Critical
+Issue Details
+Kingdom: Input Validation and Representation
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: previewDash(0)
+From: com.lfar.LfarLHOManagerServiceApi.controllers.DashboardReportsController.prev
+iewDash
+File: src/main/java/com/lfar/LfarLHOManagerServiceApi/controllers/DashboardReportsC
+ontroller.java:59
+URL: 0
+56 
+57 
+58  @RequestMapping("/previewDash")
+59  public ResponseEntity<ResponseVO> previewDash(@RequestBody Map<String, Object> payload){
+60  ResponseVO responseVO = new ResponseVO();
+61  Map<String, Object> dashPreview = lfarLhoReportService.dashboardPreview(payload);
+62  responseVO.setStatusCode(HttpStatus.OK.value());
+Sink Details
+Sink: java.io.File.File()
+Enclosing Method: dashboardPreview()
+File: src/main/java/com/lfar/LfarLHOManagerServiceApi/services/LfarLHoManagerServiceImpl.java:214
+Taint Flags: WEB, XSS
+211  String jasperFilePath = rootPath + "jasper" + File.separator + jrxmlName + ".jasper";
+212  Map<String, Object> param = new HashMap<>();
+213  String outFileDest = config.getProperty("REPORT_HOME_DIR") + "created/" + user.get("circleCode").toString() + File.separator + 
+user.get("roCode").toString();
+214  File outFile = new File(outFileDest);
+215 
+216  if (!outFile.exists()) {
+217  boolean pathCreation = outFile.mkdirs();
+Nov 14, 2026, 8:06 PM
+© Copyright [2008-2026] Micro Focus or one of its affiliates.
+159
+Path Manipulation Critical
+URL: 0
+src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
+LfarLHoManagerServiceImpl.java, line 253 (Path Manipulation) Critical
+Issue Details
+Kingdom: Input Validation and Representation
+Scan Engine: SCA (Data Flow)
+Source Details
+Source: previewDash(0)
+From: com.lfar.LfarLHOManagerServiceApi.controllers.DashboardReportsController.prev
+iewDash
+File: src/main/java/com/lfar/LfarLHOManagerServiceApi/controllers/DashboardReportsC
+ontroller.java:59
+URL: 0
+56 
+57 
+58  @RequestMapping("/previewDash")
+59  public ResponseEntity<ResponseVO> previewDash(@RequestBody Map<String, Object> payload){
+60  ResponseVO responseVO = new ResponseVO();
+61  Map<String, Object> dashPreview = lfarLhoReportService.dashboardPreview(payload);
+62  responseVO.setStatusCode(HttpStatus.OK.value());
+Sink Details
+Sink: java.io.File.File()
+Enclosing Method: jasperBuilder()
+File: src/main/java/com/lfar/LfarLHOManagerServiceApi/services/LfarLHoManagerServiceImpl.java:253
+Taint Flags: WEB, XSS
+250  throw new RuntimeException(e);
+251  }
+252  log.info("file exported");
+253  File file2 = new File(outFilePath);
+254  ByteArrayOutputStream outputStream = null;
+255  try (PDDocument document = PDDocument.load(file2)) {
+256  outputStream = new ByteArrayOutputStream();
