@@ -1,895 +1,173 @@
-1. 
-@Override
-    public byte[] downloadSignedBranchWiseReportsLfar(Map<String, Object> map) {
+@Service("LhoManagerService")
+public class LhoManagerServiceImpl implements LhoManagerService {
 
-        log.info("inside downloadBranchWiseReportsLfar reports");
+    Logger log = LogManager.getLogger(LhoManagerServiceImpl.class.getName());
 
-        Map<String, Object> userMap = (Map<String, Object>) map.get("user");
-        Map<String, Object> data = (Map<String, Object>) map.get("data");
-        String branchCode = userMap.get("branch_code").toString();
-        String qed = (String) userMap.get("quarterEndDate");
-        String reportId = (String) data.get("reportId");
-        String quarterDate = qed.replaceAll("/", "");
+    final
+    LhoManagerRepository lhoManagerRepository;
 
-        String selectedQuarterDate = data.get("QuarterDate").toString();
-        selectedQuarterDate = selectedQuarterDate.replaceAll("/", "");
+    @Autowired
+    LfarStatusRepository lfarStatusRepository;
 
-        String selectedDate = data.get("QuarterDate").toString();
+    public LhoManagerServiceImpl(LhoManagerRepository lhoManagerRepository) {
+        this.lhoManagerRepository = lhoManagerRepository;
+    }
 
-        String roCode = data.get("roCode").toString();
-        roCode = roCode.replace("-", "");
+    @Override
+    public Map<String, Object> branchList(Map<String, Object> payload) {
+        Map<String, Object> user = (Map<String, Object>) payload.get("user");
+        Map<String, Object> data = (Map<String, Object>) payload.get("data");
+        Map<String, Object> reportList = new HashMap<>();
+        String currentQED = user.get("quarterEndDate").toString();
+        String circleCode = user.get("circleCode").toString();
+        String quarterDate = data.get("quarterDate").toString();
+        log.info("cqed: {} qed: {}", currentQED, quarterDate);
 
-        log.info("roCode : {}", roCode);
+        log.info("current quarter date so list from report_submission");
+        reportList.put("branchList", lhoManagerRepository.getCurrBranchList(currentQED, circleCode));
 
-        String reportMasterId = data.get("reportId") != null
-                ? data.get("reportId").toString()
-                : "NA";
 
-        String circleCode = userMap.get("circleCode").toString();
+        return reportList;
+    }
 
-        log.info("branchCode {}", branchCode);
-        log.info("quarterDate {}", quarterDate);
+    @Override
+    public Map<String, Object> quarterList(Map<String, Object> payload) {
+        Map<String, Object> user = (Map<String, Object>) payload.get("user");
+        String quarterDate = user.get("quarterEndDate").toString();
+        Map<String, Object> quarterList = new HashMap<>();
+        List<String> quarter = lhoManagerRepository.getQuarterList();
+        quarterList.put("quarterList", quarter);
+        return quarterList;
+    }
 
-        log.info("basePath>>>" + FILE_BASE_PATH);
-
-        byte[] zipFile = null;
+    @Override
+    public Map<String, Object> reportList(Map<String, Object> payload) {
+        Map<String, Object> result = new HashMap<>();
 
         try {
-            List<String> branchCodes = null;
-            log.info("Current Quarter End Date is selected");
-            SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
-            if (roCode.isEmpty() || roCode.equals("420")) {
+            Map<String, Object> user = (Map<String, Object>) payload.get("user");
+            Map<String, Object> data = (Map<String, Object>) payload.get("data");
 
-                branchCodes = lfarReportsRepository.getAllBranchesForLfar(circleCode, selectedDate, reportMasterId);
-            } else {
-                branchCodes = lfarReportsRepository.getAllBranchesForLfarWithRo(circleCode, selectedDate,
-                        reportMasterId, roCode);
-            }
+            String quarterDate = (String) data.get("quarterDate");
+            log.info("Quarter Date: {}" + quarterDate);
 
-            if (data.get("downloadType").toString().equalsIgnoreCase("compliance")) {
-                zipFile = getCurrentYearComplianceReport(branchCodes, formatter.parse(selectedDate), reportId);
-            } else if (data.get("downloadType").toString().equalsIgnoreCase("closureNote")) {
-                log.info("entering closure NOte");
-                zipFile = downloadReportService.downloadLfarReportWiseForClosureNote(circleCode, selectedDate);
+            String branchCode = (String) data.get("branchCode");
+            log.info("branch_code: {}" + branchCode);
 
-            } else {
-                zipFile = getCurrentYearLFARReport(branchCodes, formatter.parse(selectedDate), reportId);
-            }
-            return zipFile;
-        } catch (ParseException e) {
-            log.error("Date parse exception {}", e.getMessage());
-        }
-
-        List<Map<String, Object>> getFilePathList = getWholeBranchWiseReports(map);
-        log.info("getFilePathList :: {}", getFilePathList);
-
-        if (!getFilePathList.isEmpty()) {
-            log.info("inside getpathlist not empty");
-            zipFile = createWholeBranchWiseZipFIleLfar(getFilePathList);
-        }
-        return zipFile;
-    }
-
-    private List<Map<String, Object>> getWholeBranchWiseReports(Map<String, Object> map) {
-
-        log.info("inside getwholebranchwisereports>>>");
-        Map<String, Object> data = (Map<String, Object>) map.get("data");
-        Map<String, Object> userMap = (Map<String, Object>) map.get("user");
-        String quarterDate = data.get("QuarterDate").toString();
-        String roCode = data.get("roCode").toString();
-        roCode = roCode.replaceAll("-", "");
-        String reportMasterId = data.get("reportName").toString();
-        String circleCode = userMap.get("circleCode").toString();
-        if (roCode.isEmpty() || roCode.equals("") || roCode.equals("420")) {
-            return lfarReportsRepository.getWholeCircleFilePathListLfar(circleCode, quarterDate, reportMasterId);
-        } else {
-            return lfarReportsRepository.getWholeCircleFilePathListLfarWithRo(circleCode, quarterDate, reportMasterId,
-                    roCode);
-        }
-    }
-
-    private byte[] createWholeBranchWiseZipFIleLfar(List<Map<String, Object>> getFilePathList) {
-
-        log.info("inside createWholeBranchWiseZipFIle");
-        byte[] byteStream = null;
-        HashMap<String, String> filesHashMap = new HashMap<>();
-        log.info("getFilePathList.size()>>>>>" + getFilePathList.size());
-
-        for (Map<String, Object> stringObjectMap : getFilePathList) {
-            String fullFilePath = (String) stringObjectMap.get("PDF_FILE_PATH");
-            String fileName = fullFilePath.split("/")[7];
-            String filePath = fullFilePath.substring(0, fullFilePath.length() - fileName.length());
-            filePath = filePath.replace("/", "\\");
-            filesHashMap.put(fileName, filePath);
-        }
-        String serverPostKeyString = CommonConstants.POST_SERVER_IP_0;
-        String ipAddress = CommonServerFunctions.getServerIp(serverPostKeyString);
-        String encryptedSftpPass = lfarPropertyRepository.getServerPwd(ipAddress);
-
-        HashMap<String, Object> fileTransfer = FileTransfer.getSignedBulkFilesFromSftpToZip(serverPostKeyString,
-                encryptedSftpPass, filesHashMap);
-        log.info("fileTransfer       " + fileTransfer);
-        if (!fileTransfer.isEmpty()) {
-            log.info("file transfer true condition>>>");
-            byteStream = (byte[]) fileTransfer.get("fileContent");
-        }
-        log.info("createWholeBranchWiseZipFIle -END");
-        return byteStream;
-    }
-
-    private byte[] getCurrentYearLFARReport(List<String> branchCodes, Date quarterEndDate, String reportId) {
-        log.info("Inside Get Current Year Archive LFAR");
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            ZipOutputStream zipOut = new ZipOutputStream(baos);
-            List<Map<String, Object>> reportList = lfarReportsRepository.getReportsSubmissionIdList(branchCodes,
-                    quarterEndDate, reportId);
-
-            byte[] pdfBytes = null;
-            for (Map<String, Object> report : reportList) {
-                byte[] reportData = lfarReportsRepository.getReportsByBranchQedForLfar(quarterEndDate,
-                        Integer.parseInt(String.valueOf(report.get("REPORTS_SUBMISSION_ID"))));
-
-                if (reportData.length == 0) {
-                    continue;
-                }
-                String str = new String(reportData, StandardCharsets.UTF_8);
-                try {
-                    pdfBytes = Base64.getDecoder().decode(str);
-                } catch (RuntimeException e) {
-                    log.info("This blob is not Base64");
-                    pdfBytes = reportData;
-                }
-                String reportName = (lfarReportsRepository.getBranchCode(quarterEndDate,
-                        Integer.parseInt(String.valueOf(report.get("REPORTS_SUBMISSION_ID"))))) + "_"
-                        + report.get("REPORT_NAME") + ".pdf";
-                log.info("Report Name :: {}", reportName);
-                zipOut.putNextEntry(new ZipEntry(reportName));
-                zipOut.write(pdfBytes);
-                zipOut.closeEntry();
-            }
-            if (reportId.equals("4021")) {
-
-                log.info("Inside LFAR 2");
-                for (String branchCode : branchCodes) {
-                    ByteArrayOutputStream baosTemp = new ByteArrayOutputStream();
-                    ZipOutputStream lfarZipOut = new ZipOutputStream(baosTemp);
-                    int noOfEntries = 0;
-                    List<Map<String, Object>> lfar2ReportsData = lfarReportsRepository.getLfar2Id(quarterEndDate,
-                            branchCode);
-                    if (!lfar2ReportsData.isEmpty()) {
-                        for (Map<String, Object> lfar2 : lfar2ReportsData) {
-                            int lfar2Id = Integer.parseInt(String.valueOf(lfar2.get("LFAR2_ID")));
-                            log.info(lfar2Id);
-                            byte[] reportBlob = lfarReportsRepository.getLfar2Observation(lfar2Id);
-
-                            if (reportBlob != null) {
-                                // String accountNumber = lfar2.get("LFAR2_ACCT").toString();
-                                String observationName = lfar2.get("LFAR2_OBSERVATION_NAME").toString();
-                                log.info(observationName);
-                                lfarZipOut.putNextEntry(new ZipEntry(observationName));
-                                lfarZipOut.write(reportBlob);
-                                noOfEntries++;
-                            }
-
-                        }
-                    }
-
-                    log.info("Size of baosTemp :: {}", baosTemp.size());
-
-                    lfarZipOut.finish();
-                    lfarZipOut.close();
-                    baosTemp.close();
-                    log.info("Size of baosTemp :: {}", baosTemp.size());
-                    String zipName = branchCode + "_LFAR2_OBSERVATION.zip";
-                    log.info("zip :: {}", zipName);
-
-                    if (noOfEntries > 0) {
-                        log.info("Writing into file");
-                        zipOut.putNextEntry(new ZipEntry(zipName));
-                        zipOut.write(baosTemp.toByteArray());
-                    }
-
-                }
-
-            }
-            zipOut.finish();
-            zipOut.close();
-            return baos.toByteArray();
-
-        } catch (IOException e) {
-            log.error("Exception occurred in getCurrentYearArchive{}", e.getMessage());
-            return new byte[0];
-        }
-    }
-
-    private byte[] getCurrentYearComplianceReport(List<String> branchCodes, Date quarterEndDate, String reportId) {
-        log.info("Inside Get Current Year Compliance LFAR");
-
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            ZipOutputStream zipOut = new ZipOutputStream(baos);
-            // For LFAR 1, 4, 5, 6 Compliance
-            if (reportId.equals("4019") || reportId.equals("4023") || reportId.equals("4025") || reportId.equals("4027")
-                    || reportId.equals("4015") || reportId.equals("4021")) {
-                List<Map<String, Object>> reportList = lfarReportsRepository.getReportsSubmissionIdList(branchCodes,
-                        quarterEndDate, reportId);
-
-                byte[] pdfBytes = null;
-                for (Map<String, Object> report : reportList) {
-                    byte[] reportData = lfarReportsRepository.getComplianceReportsByBranchQedForLfar(quarterEndDate,
-                            Integer.parseInt(String.valueOf(report.get("REPORTS_SUBMISSION_ID"))));
-                    if (reportData.length == 0) {
-                        continue;
-                    }
-
-                    String str = new String(reportData, StandardCharsets.UTF_8);
-
-                    try {
-                        pdfBytes = Base64.getDecoder().decode(str);
-
-                    } catch (RuntimeException e) {
-                        log.info("This blob is not Base64");
-                        pdfBytes = reportData;
-                    }
-                    String reportName = (lfarReportsRepository.getBranchCode(quarterEndDate,
-                            Integer.parseInt(String.valueOf(report.get("REPORTS_SUBMISSION_ID"))))) + "_"
-                            + report.get("REPORT_NAME") + "Compliance.pdf";
-                    log.info("Report Name :: {}", reportName);
-                    zipOut.putNextEntry(new ZipEntry(reportName));
-                    zipOut.write(pdfBytes);
-                    zipOut.closeEntry();
-                }
-            }
-
-            // For LFAR2 Compliance + Evidence.
-            if (reportId.equals("4021")) {
-                log.info("Inside LFAR 2 Compliance and Evidence Download");
-                for (String branchCode : branchCodes) {
-                    ByteArrayOutputStream baosTemp = new ByteArrayOutputStream();
-                    ZipOutputStream lfarZipOut = new ZipOutputStream(baosTemp);
-                    int noOfEntries = 0;
-                    List<Map<String, Object>> lfar2ReportsData = lfarReportsRepository
-                            .getLfar2IdForCompliance(quarterEndDate, branchCode);
-                    if (!lfar2ReportsData.isEmpty()) {
-                        for (Map<String, Object> lfar2 : lfar2ReportsData) {
-                            int count = 0;
-                            int lfar2Id = Integer.parseInt(String.valueOf(lfar2.get("LFAR2_ID")));
-                            log.info(lfar2Id);
-                            byte[] complianceData = lfarReportsRepository.getLfar2Compliance(lfar2Id);
-                            byte[] EvidenceData = lfarReportsRepository.getLfar2Evidence(lfar2Id);
-
-                            if (complianceData != null) {
-                                // String accountNumber = lfar2.get("LFAR2_ACCT").toString();
-                                String complianceName = ++count + "_" + lfar2.get("LFAR2_COMPLIANCE_NAME").toString();
-                                log.info(complianceName);
-                                lfarZipOut.putNextEntry(new ZipEntry(complianceName));
-                                lfarZipOut.write(complianceData);
-                                noOfEntries++;
-                            }
-                            if (EvidenceData != null) {
-                                // String accountNumber = lfar2.get("LFAR2_ACCT").toString();
-                                String evidenceName = ++count + "_" + lfar2.get("LFAR2_EVIDENCE_NAME").toString();
-                                log.info(evidenceName);
-                                lfarZipOut.putNextEntry(new ZipEntry(evidenceName));
-                                lfarZipOut.write(EvidenceData);
-                                noOfEntries++;
-                            }
-
-                        }
-                    }
-                    log.info("Size of baosTemp :: {}", baosTemp.size());
-                    lfarZipOut.finish();
-                    lfarZipOut.close();
-                    baosTemp.close();
-                    log.info("Size of baosTemp :: {}", baosTemp.size());
-                    String zipName = branchCode + "_LFAR2_COMPLIANCE_EVIDENCE.zip";
-                    log.info("zip :: {}", zipName);
-
-                    if (noOfEntries > 0) {
-                        log.info("Writing into file");
-                        zipOut.putNextEntry(new ZipEntry(zipName));
-                        zipOut.write(baosTemp.toByteArray());
-                    }
-
-                }
-
-            }
-            // For LFAR3 Evidence.
-            if (reportId.equals("4015")) {
-                log.info("Inside LFAR 3 Compliance and Evidence Download");
-                List<Map<String, Object>> reportList = lfarReportsRepository
-                        .getEvidenceSubmissionIdListForLFAR3(branchCodes, quarterEndDate);
-                int count = 0;
-                byte[] pdfBytes = null;
-                for (Map<String, Object> report : reportList) {
-                    byte[] reportData = lfarReportsRepository.getEvicenceReportsByBranchQedForLfar3(quarterEndDate,
-                            Integer.parseInt(String.valueOf(report.get("LFAR_ID"))));
-                    if (reportData == null || reportData.length == 0) {
-                        continue;
-                    }
-                    String str = new String(reportData, StandardCharsets.UTF_8);
-                    try {
-                        pdfBytes = Base64.getDecoder().decode(str);
-                    } catch (RuntimeException e) {
-                        log.info("This blob is not Base64");
-                        pdfBytes = reportData;
-                    }
-                    String reportName = (lfarReportsRepository.getBranchCodeForLFAR3(quarterEndDate,
-                            Integer.parseInt(String.valueOf(report.get("LFAR_ID"))))) + "_" + (++count) + "_"
-                            + report.get("EVIDENCE_NAME").toString().split("\\.pdf")[0] + "_Evidence.pdf";
-                    log.info("Report Name :: {}", reportName);
-                    zipOut.putNextEntry(new ZipEntry(reportName));
-                    zipOut.write(pdfBytes);
-                    zipOut.closeEntry();
-                }
-            }
-            zipOut.finish();
-            zipOut.close();
-            return baos.toByteArray();
+            List<Map<String, Object>> reportList = lhoManagerRepository.getReportList(quarterDate, branchCode);
+            result.put("reportList", reportList);
+            result.put("status", true);
+            log.info("Report List retrieved :  {}", reportList);
 
         } catch (Exception e) {
-            log.error("Exception occurred in getCurrentYearArchive{}", e.getMessage());
-            e.printStackTrace();
-            return new byte[0];
+            log.info("Exception occurred while fetching report List to download : " + e.getMessage());
+            result.put("reportList", null);
+            result.put("status", false);
         }
-    }
 
-}
-
----------------------------------------------------------------------
-LfarLHomanagerserviceimpl.java
-@Service("LfarLhoReportService")
-public class LfarLHoManagerServiceImpl implements LfarLhoReportService{
-
-    static Logger log = Logger.getLogger(LfarLHoManagerServiceImpl.class.getName());
-
-    @Autowired
-    LHODashBoardServiceRepository lHODashBoardServiceRepository;
-    @Autowired
-    LHODashBoardScreenDataRepository lhoDashBoardScreenDataRepository;
-    @Autowired
-    DataSource dataSource;
-
-    @Override
-    public ResponseEntity<String> getPendingReportFromLHO(Map<String, Object> map) {
-        ResponseVo<Map<String, Object>> responseVO = new ResponseVo<>();
-
-        Map<String, String> loginUserData = (Map<String, String>) map.get("user");
-        String branchCode = loginUserData.get("branch_code");
-        
-        //String regionCode = loginUserData.get("roCode");
-        //log.info("regionCode ::::"+regionCode);
-
-        String regionNo = loginUserData.get("regionNo");
-        log.info("regionCode ::::"+regionNo);
-        
-        String circleCode = loginUserData.get("circleCode");
-        log.info("circleCode ::::"+circleCode);
-
-        String userRole = loginUserData.get("user_role");
-
-        String quarterEndDate = loginUserData.get("quarterEndDate");
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        LocalDate date = LocalDate.parse(quarterEndDate, formatter);
-        
-        int month = date.getMonthValue();
-        log.info("quarterEndDate:-" + quarterEndDate + " branchCode:-" + branchCode);
-
-
-           String period = "QUARTERLY";
-        if (month == Integer.parseInt("03")) {
-            period = "YEARLY";
-        }
-        log.info("branchCode:-"+branchCode);
-        log.info("quarterEndDate:-"+quarterEndDate);
-        log.info("period:-" + period);
-        log.info("userRole:-" + userRole);
-
-        // To Store the Piechart values
-        List<Map<String, Object>> mapc = new ArrayList<>();
-
-        
-        // if(userRole.equals("1") || userRole.equals("9")){
-        //     mapc = lHODashBoardServiceRepository.getBranchPendingReportFromMakerAndChecker(branchCode, quarterEndDate);
-        // } 
-        // else if(userRole.equals("11")){
-        //     mapc = lHODashBoardServiceRepository.getBranchPendingReportFromAuditor(branchCode, quarterEndDate);
-        // }
-        // else if(userRole.equals("75")){
-        //     mapc = lHODashBoardServiceRepository.getROPendingReport(period,regionNo,circleCode,quarterEndDate);
-        // }
-        // else 
-        if(userRole.equals("50")){
-            mapc = lHODashBoardServiceRepository.getLHOPendingReport(period,circleCode,quarterEndDate);
-        }
-        log.info("mapc :- "+mapc);
-
-
-         // To Store status counts
-        Map<String, Object> mapsc = new HashMap<>();
-
-
-        // if(userRole.equals("1")){
-        //     // Maker
-        //     String countNotCreated = lHODashBoardServiceRepository.getCountForNotCreated(branchCode, quarterEndDate, period);
-        //     String countSavedNotSubmitted = lHODashBoardServiceRepository.getCountByStatus("10",branchCode, quarterEndDate);
-        //     String countCheckerReject = lHODashBoardServiceRepository.getCountByStatus("12",branchCode, quarterEndDate);
-
-        //     mapsc.put("notCreateCount", countNotCreated);
-        //     mapsc.put("savedNotSubmitCount", countSavedNotSubmitted);
-        //     mapsc.put("checkerRejectCount", countCheckerReject);
-
-        // }
-        // else if(userRole.equals("9")){
-        //     // Checker
-        //     String countMakerSubmit = lHODashBoardServiceRepository.getCountByStatus("20",branchCode, quarterEndDate);
-        //     String countAuditorReject = lHODashBoardServiceRepository.getCountByStatus("23",branchCode, quarterEndDate);
-        //     String countROReject = lHODashBoardServiceRepository.getCountByStatus("24",branchCode, quarterEndDate);
-        //     String countLHOReject = lHODashBoardServiceRepository.getCountByStatus("36",branchCode, quarterEndDate);
-
-        //     mapsc.put("makerSubmitCount", countMakerSubmit);
-        //     mapsc.put("auditorRejectCount", countAuditorReject);
-        //     mapsc.put("roRejectCount", countROReject);
-        //     mapsc.put("lhoRejectCount", countLHOReject);
-
-
-        // } 
-        // else if(userRole.equals("11")){
-        //     String countCheckerSubmit = String.valueOf(
-        //                                     Integer.parseInt(lHODashBoardServiceRepository.getCountByStatus("31",branchCode, quarterEndDate))
-        //                                 +   Integer.parseInt(lHODashBoardServiceRepository.getCountByStatus("30",branchCode, quarterEndDate)));
-            
-        //     String countLHOReject = lHODashBoardServiceRepository.getCountByStatus("36",branchCode, quarterEndDate);
-        //     mapsc.put("checkerSubmitCount",countCheckerSubmit);
-        //     mapsc.put("LHORejectCount",countLHOReject);
-
-        // }
-        // else if(userRole.equals("75")){
-        //     // RO
-        //     String countBranchSubmit = lHODashBoardServiceRepository.getCountBranchSubmitted(circleCode,regionNo,quarterEndDate);
-        //     mapsc.put("branchSubmitCount",countBranchSubmit);
-
-        // } 
-        if(userRole.equals("50")){
-            // LHO
-
-            String countBranchesNotStarted = lHODashBoardServiceRepository.getCountBranchesNotStarted(circleCode,quarterEndDate);
-            String countBranchesCompleted = lHODashBoardServiceRepository.getCountBranchesCompleted(circleCode,quarterEndDate,period);
-            String countBranchesUnderCircle = lHODashBoardServiceRepository.getCountOfBranchesUnderCircle(circleCode);
-            String countBranchesInProgress = String.valueOf(Integer.parseInt(countBranchesUnderCircle) -(Integer.parseInt(countBranchesNotStarted) + Integer.parseInt(countBranchesCompleted)));
-
-            mapsc.put("branchesNotStartedCount", countBranchesNotStarted);
-            mapsc.put("branchesInProgressCount", countBranchesInProgress);
-            mapsc.put("branchesCompletedCount", countBranchesCompleted);
-
-        }
-        Map<String, Object> data = new HashMap<>();
-        data.put("piechart" , mapc);
-        data.put("statuscount" , mapsc);
-        log.info("Data:-" + data);
-        responseVO.setStatusCode(HttpStatus.OK.value());
-        responseVO.setMessage("Data retrieved successfully");
-        responseVO.setResult(data);
-        return new ResponseEntity(responseVO, HttpStatus.OK);
-    }
-
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public List<Map<String,Object>> getlfarDashBoardScreen(Map<String, Object> map) {
-        Map<String, Object> user = (Map<String, Object>) map.get("user");
-        String userRole = (String) user.get("user_role");
-        log.info("userRole for Lfar LHO :::"+userRole);
-        return lhoDashBoardScreenDataRepository.getLfarLhohomeScreenList(userRole);
-       
+        return result;
     }
 
     @Override
-    public Map<String, Object> dashboardPreview(Map<String, Object> payload) {
-        Map<String,Object> user = (Map<String, Object>) payload.get("user");
-        Map<String,Object> data = (Map<String, Object>) payload.get("data");
-        Map<String,Object> result = new HashMap<>();
-        log.info("data: "+data);
-        log.info("user: "+user);
-        log.info(user.get("circleCode").toString());
-        log.info(user.get("roCode").toString());
-        String safeCircleCode = SanitizeUtil.sanitizeSegment(user.get("circleCode").toString(), "circleCode");
-        String safeRoCode = SanitizeUtil.sanitizeSegment(user.get("roCode").toString(), "roCode");
-        String code = safeCircleCode + safeRoCode;
-        String quarterDate = user.get("quarterEndDate").toString();
-        String jrxmlName = SanitizeUtil.sanitizeSegment(data.get("jrxmlName").toString(), "jrxmlName");
-        log.info("jrxmlName ::"+jrxmlName);
-        
-        Map<String, Object> pdfCont = new HashMap<>();
- 
-        Connection conn;
-        String rootPath = Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource("")).getPath();
-        log.info("");
-        String configPath = rootPath + "common.properties";
-        byte[] pdfContent;
+    public int rejectReport(Map<String, Object> payload) {
+        int result = 0;
+
         try {
-            Properties config = new Properties();
-            config.load(new FileInputStream(configPath));
-            conn = dataSource.getConnection();
-            String jasperFilePath = SanitizeUtil.resolveSafeFile(rootPath + "jasper", jrxmlName + ".jasper").getAbsolutePath();
-            Map<String, Object> param = new HashMap<>();
-            String createdBaseDir = config.getProperty("REPORT_HOME_DIR") + "created";
-            File outFile = SanitizeUtil.resolveSafeFile(createdBaseDir, safeCircleCode, safeRoCode);
-            String outFileDest = outFile.getAbsolutePath();
-            
-            if (!outFile.exists()) {
-                boolean pathCreation = outFile.mkdirs();
-                if (pathCreation) {
-                    log.info("outFilePath created");
-                }
+            Map<String, Object> user = (Map<String, Object>) payload.get("user");
+            Map<String, Object> data = (Map<String, Object>) payload.get("data");
+
+            String pfNumber = user.get("pf_number").toString();
+            String submissionId = String.valueOf(data.get("submissionId"));
+            String branchCode = (String) user.get("branch_code");
+            String quarterDate = (String) user.get("quarterEndDate");
+            String remarks = "Rejected by LHO Manager";
+            String rejectStatus = "36";
+
+            int reject = lhoManagerRepository.rejectReport(pfNumber, submissionId);
+            if (reject > 0) {
+                result = 1;
+                insertLfarStatus(user, rejectStatus, submissionId, remarks, data.get("reportId").toString());
+                log.info("Lfar Status Updated");
+                lhoManagerRepository.updateBrTrackStatusLhoReject(rejectStatus, quarterDate, branchCode);
+                log.info("BR Status Updated");
+                log.info("reject report successful : {}", reject);
             }
-            String outFilePath = SanitizeUtil.resolveSafeFile(createdBaseDir, safeCircleCode, safeRoCode, code.substring(3) + ".pdf").getAbsolutePath();
-
- 
-            param.put("CODE", code);
-            param.put("DATE", quarterDate);
-            pdfContent = jasperBuilder(jasperFilePath, param, conn, outFilePath, outFileDest);
-            pdfCont.put("pdfContent", pdfContent);
-            log.info("pdfContent added to map");
-        } catch (IOException | SQLException e) {
-            log.severe("Exception Occurred "+ e);
+        } catch (Exception e) {
+            log.error("Exception occurred in reject report : {}", e.getMessage());
         }
-        return pdfCont;
+
+        return result;
     }
 
-     private static byte[] jasperBuilder(String jasperFilePath, Map<String, Object> param, Connection conn, String outFilePath, String outFileDest) throws IOException {
-        byte[] pdfContent = new byte[0];
-        JasperPrint jasperPrint;
-        File file2 = SanitizeUtil.resolveSafeFile(outFileDest, new File(outFilePath).getName());
-        String safeOutFilePath = file2.getAbsolutePath();
+    @Override
+    public int rejectCompliance(Map<String, Object> payload) {
+        int result = 0;
         try {
-            jasperPrint = JasperFillManager.fillReport(jasperFilePath, param, conn);
-            File file = SanitizeUtil.resolveSafeFile(outFileDest);
-            log.info("file: {}"+ file);
-            if (!file.exists()) {
-                log.info("file path does not exist!");
-                file.mkdirs();
+//            Map<String, Object> user = (Map<String, Object>) payload.get("user");
+            Map<String, Object> data = (Map<String, Object>) payload.get("data");
+
+            String submissionId = String.valueOf(data.get("submissionId"));
+            String branchCode = (String) data.get("branchCode");
+            String quarterDate = (String) data.get("quarterDate");
+            String rejectStatus = "36";
+
+            int reject = lhoManagerRepository.rejectCompliance(branchCode, submissionId);
+            int rejectComplianceCount = lhoManagerRepository.getComplianceRejectCount(branchCode, quarterDate);
+            log.info("rejectComplianceCount : {}", rejectComplianceCount);
+            if (reject > 0 && rejectComplianceCount == 6) {
+                result = 1;
+                lhoManagerRepository.updateBrTrackStatusLhoReject(rejectStatus, quarterDate, branchCode);
+                log.info("BR Status Updated");
+                log.info("compliance reject successful");
+            }else if(reject > 0){
+                result = 1;
+                log.info("BR Status Not Updated");
+                log.info("compliance reject successful");
+            }else {
+                log.info("compliance reject not successful");
+                log.info("BR Status Not Updated");
             }
-            log.info("file path exists");
- 
-            JasperExportManager.exportReportToPdfFile(jasperPrint, safeOutFilePath);
-        } catch (JRException e) {
-            throw new RuntimeException(e);
+
+        } catch (Exception e) {
+            log.error("Exception occurred in rejectCompliance report : {}", e.getMessage());
+            result = 0;
         }
-        log.info("file exported");
-        ByteArrayOutputStream outputStream = null;
-        try (PDDocument document = PDDocument.load(file2)) {
-            outputStream = new ByteArrayOutputStream();
-            document.save(outputStream);
-            pdfContent = outputStream.toByteArray();
-        } catch (IOException e) {
-            log.severe("{} File not found. Kindly try again."+ safeOutFilePath);
-        } finally {
-            assert outputStream != null;
-            outputStream.close();
-        }
-        log.info("pdfContent generated");
-        return pdfContent;
+        return result;
     }
 
 
-
-
-    public Timestamp getQedFormatter(String quarterEndDate) {
+    /**
+     * @Category: Private Functions
+     */
+    private void insertLfarStatus(Map<String, Object> user, String status, String submissionId, String remarks,
+                                  String reportId) {
         try {
-            SimpleDateFormat dateFormat = new SimpleDateFormat(
-                    "dd/MM/yyyy"
-            );
-            Date parsedDate = dateFormat.parse(quarterEndDate);
-            Timestamp timestamp = new Timestamp(parsedDate.getTime());
-            Timestamp finalTimestamp = timestamp;
+            LfarStatus sts = new LfarStatus();
+            SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
 
-            return finalTimestamp;
+            log.info("Inside insertLfarStatus");
+            sts.setBranchCode(user.get("branch_code").toString());
+            sts.setCircleCode(user.get("circleCode").toString());
+            sts.setRoCode(user.get("roCode").toString());
+            sts.setQuarterDate(formatter.parse(user.get("quarterEndDate").toString()));
+            sts.setCrsAuditable(user.get("auditStatus").toString());
+            sts.setSubmissionIdFk(submissionId);
+            sts.setReportId(reportId);
+            sts.setCurrentStatus(CommonConstants.getStat(status));
+            sts.setStatus(status);
+            sts.setRemarks(remarks);
+            sts.setLastUpdateDate(LocalDateTime.now());
+            sts.setNilFlag("N");
+            sts.setUserId(user.get("pf_number").toString());
+
+            log.info("sts : " + sts);
+
+            lfarStatusRepository.save(sts);
+
         } catch (ParseException e) {
-            throw new RuntimeException(e);
+            log.error("Error parsing date {}", e.getMessage());
         }
     }
+
+
 }
-
-
-
-
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-LhoManagerServiceImpl.java, line 132 (Access Control: Database) High
-Issue Details
-Kingdom: Security Features
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: rejectCompliance(0)
-Nov 14, 2026, 8:06 PM
-© Copyright [2008-2026] Micro Focus or one of its affiliates.
-14
-Access Control: Database High
-URL: null
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-LhoManagerServiceImpl.java, line 132 (Access Control: Database) High
-From: com.lfar.LfarLHOManagerServiceApi.controllers.BranchWiseReportsController.rej
-ectCompliance
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/controllers/BranchWiseReports
-Controller.java:66
-URL: null
-63  }
-64 
-65  @PostMapping("/rejectCompliance")
-66  public ResponseEntity<ResponseVO> rejectCompliance(@RequestBody Map<String, Object> payload) {
-67  ResponseVO responseVO = new ResponseVO();
-68  int result = lhoManagerService.rejectCompliance(payload);
-69  responseVO.setStatusCode(HttpStatus.OK.value());
-Sink Details
-Sink: com.lfar.LfarLHOManagerServiceApi.repositories.LhoManagerRepository.rejectCompliance()
-Enclosing Method: rejectCompliance()
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/services/LhoManagerServiceImpl.java:132
-Taint Flags: PRIMARY_KEY, WEB, XSS
-129  String quarterDate = (String) data.get("quarterDate");
-130  String rejectStatus = "36";
-131 
-132  int reject = lhoManagerRepository.rejectCompliance(branchCode, submissionId);
-133  int rejectComplianceCount = lhoManagerRepository.getComplianceRejectCount(branchCode, quarterDate);
-134  log.info("rejectComplianceCount : {}", rejectComplianceCount);
-135  if (reject > 0 && rejectComplianceCount == 6) {
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-BranchWiseServiceImpl.java, line 282 (Access Control: Database) High
-Issue Details
-Kingdom: Security Features
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: downloadSignedLFARReports(0)
-From: com.lfar.LfarLHOManagerServiceApi.controllers.BranchWiseReportsController.dow
-nloadSignedLFARReports
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/controllers/BranchWiseReports
-Controller.java:171
-URL: null
-168  }
-169 
-Nov 14, 2026, 8:06 PM
-© Copyright [2008-2026] Micro Focus or one of its affiliates.
-15
-Access Control: Database High
-URL: null
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-BranchWiseServiceImpl.java, line 282 (Access Control: Database) High
-170  @PostMapping("/downloadSignedLFARReports")
-171  public ResponseEntity<Map<String, Object>> downloadSignedLFARReports(@RequestBody Map<String, 
-Object> map)
-172  throws IOException {
-173 
-174  log.info("entering sownload ");
-Sink Details
-Sink: com.lfar.LfarLHOManagerServiceApi.repositories.LfarReportsRepository.getAllBranchesForLfarWithRo()
-Enclosing Method: downloadSignedBranchWiseReportsLfar()
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/services/BranchWiseServiceImpl.java:282
-Taint Flags: PRIMARY_KEY, WEB, XSS
-279  branchCodes = lfarReportsRepository.getAllBranchesForLfar(circleCode, selectedDate, reportMasterId);
-280  } else {
-281  branchCodes = lfarReportsRepository.getAllBranchesForLfarWithRo(circleCode, selectedDate,
-282  reportMasterId, roCode);
-283  }
-284 
-285  if (data.get("downloadType").toString().equalsIgnoreCase("compliance")) {
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-LhoManagerServiceImpl.java, line 104 (Access Control: Database) High
-Issue Details
-Kingdom: Security Features
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: rejectReport(0)
-From: com.lfar.LfarLHOManagerServiceApi.controllers.BranchWiseReportsController.rej
-ectReport
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/controllers/BranchWiseReports
-Controller.java:56
-URL: null
-53  }
-54 
-55  @PostMapping("/rejectReport")
-56  public ResponseEntity<ResponseVO> rejectReport(@RequestBody Map<String, Object> payload) {
-57  ResponseVO responseVO = new ResponseVO();
-58  int result = lhoManagerService.rejectReport(payload);
-59  responseVO.setStatusCode(HttpStatus.OK.value());
-Nov 14, 2026, 8:06 PM
-© Copyright [2008-2026] Micro Focus or one of its affiliates.
-16
-Access Control: Database High
-URL: null
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-LhoManagerServiceImpl.java, line 104 (Access Control: Database) High
-Sink Details
-Sink: com.lfar.LfarLHOManagerServiceApi.repositories.LhoManagerRepository.rejectReport()
-Enclosing Method: rejectReport()
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/services/LhoManagerServiceImpl.java:104
-Taint Flags: PRIMARY_KEY, WEB, XSS
-101  String remarks = "Rejected by LHO Manager";
-102  String rejectStatus = "36";
-103 
-104  int reject = lhoManagerRepository.rejectReport(pfNumber, submissionId);
-105  if (reject > 0) {
-106  result = 1;
-107  insertLfarStatus(user, rejectStatus, submissionId, remarks, data.get("reportId").toString());
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-BranchWiseServiceImpl.java, line 322 (Access Control: Database) High
-Issue Details
-Kingdom: Security Features
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: downloadSignedBranchWiseReports(0)
-From: com.lfar.LfarLHOManagerServiceApi.controllers.BranchWiseReportsController.dow
-nloadSignedBranchWiseReports
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/controllers/BranchWiseReports
-Controller.java:132
-URL: null
-129  }
-130 
-131  @PostMapping("/downloadSignedBranchWiseReports")
-132  public ResponseEntity<Map<String, Object>> downloadSignedBranchWiseReports(@RequestBody 
-Map<String, Object> map) {
-133  ResponseVO<Map<String, Object>> responseVo = new ResponseVO<>();
-134  Map<String, Object> zipMap = new HashMap<>();
-135  Map<String, Object> userMap = (Map<String, Object>) map.get("user");
-Sink Details
-Sink: com.lfar.LfarLHOManagerServiceApi.repositories.LfarReportsRepository.getWholeCircleFilePathListLfarWithRo()
-Enclosing Method: getWholeBranchWiseReports()
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/services/BranchWiseServiceImpl.java:322
-Taint Flags: PRIMARY_KEY, WEB, XSS
-319  if (roCode.isEmpty() || roCode.equals("") || roCode.equals("420")) {
-Nov 14, 2026, 8:06 PM
-© Copyright [2008-2026] Micro Focus or one of its affiliates.
-17
-Access Control: Database High
-URL: null
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-BranchWiseServiceImpl.java, line 322 (Access Control: Database) High
-320  return lfarReportsRepository.getWholeCircleFilePathListLfar(circleCode, quarterDate, reportMasterId);
-321  } else {
-322  return lfarReportsRepository.getWholeCircleFilePathListLfarWithRo(circleCode, quarterDate, reportMasterId,
-323  roCode);
-324  }
-325  }
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-LhoManagerServiceImpl.java, line 104 (Access Control: Database) High
-Issue Details
-Kingdom: Security Features
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: rejectReport(0)
-From: com.lfar.LfarLHOManagerServiceApi.controllers.BranchWiseReportsController.rej
-ectReport
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/controllers/BranchWiseReports
-Controller.java:56
-URL: null
-53  }
-54 
-55  @PostMapping("/rejectReport")
-56  public ResponseEntity<ResponseVO> rejectReport(@RequestBody Map<String, Object> payload) {
-57  ResponseVO responseVO = new ResponseVO();
-58  int result = lhoManagerService.rejectReport(payload);
-59  responseVO.setStatusCode(HttpStatus.OK.value());
-Sink Details
-Sink: com.lfar.LfarLHOManagerServiceApi.repositories.LhoManagerRepository.rejectReport()
-Enclosing Method: rejectReport()
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/services/LhoManagerServiceImpl.java:104
-Taint Flags: PRIMARY_KEY, WEB, XSS
-101  String remarks = "Rejected by LHO Manager";
-102  String rejectStatus = "36";
-103 
-104  int reject = lhoManagerRepository.rejectReport(pfNumber, submissionId);
-105  if (reject > 0) {
-106  result = 1;
-107  insertLfarStatus(user, rejectStatus, submissionId, remarks, data.get("reportId").toString());
-Nov 14, 2026, 8:06 PM
-© Copyright [2008-2026] Micro Focus or one of its affiliates.
-18
-Access Control: Database High
-URL: null
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-BranchWiseServiceImpl.java, line 450 (Access Control: Database) High
-Issue Details
-Kingdom: Security Features
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: downloadSignedBranchWiseReports(0)
-From: com.lfar.LfarLHOManagerServiceApi.controllers.BranchWiseReportsController.dow
-nloadSignedBranchWiseReports
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/controllers/BranchWiseReports
-Controller.java:132
-URL: null
-129  }
-130 
-131  @PostMapping("/downloadSignedBranchWiseReports")
-132  public ResponseEntity<Map<String, Object>> downloadSignedBranchWiseReports(@RequestBody 
-Map<String, Object> map) {
-133  ResponseVO<Map<String, Object>> responseVo = new ResponseVO<>();
-134  Map<String, Object> zipMap = new HashMap<>();
-135  Map<String, Object> userMap = (Map<String, Object>) map.get("user");
-Sink Details
-Sink: com.lfar.LfarLHOManagerServiceApi.repositories.LfarReportsRepository.getReportsSubmissionIdList()
-Enclosing Method: getCurrentYearComplianceReport()
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/services/BranchWiseServiceImpl.java:450
-Taint Flags: PRIMARY_KEY, WEB, XSS
-447  if (reportId.equals("4019") || reportId.equals("4023") || reportId.equals("4025") || reportId.equals("4027")
-448  || reportId.equals("4015") || reportId.equals("4021")) {
-449  List<Map<String, Object>> reportList = lfarReportsRepository.getReportsSubmissionIdList(branchCodes,
-450  quarterEndDate, reportId);
-451 
-452  byte[] pdfBytes = null;
-453  for (Map<String, Object> report : reportList) {
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-BranchWiseServiceImpl.java, line 282 (Access Control: Database) High
-Issue Details
-Kingdom: Security Features
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: downloadSignedBranchWiseReports(0)
-Nov 14, 2026, 8:06 PM
-© Copyright [2008-2026] Micro Focus or one of its affiliates.
-19
-Access Control: Database High
-URL: null
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-BranchWiseServiceImpl.java, line 282 (Access Control: Database) High
-From: com.lfar.LfarLHOManagerServiceApi.controllers.BranchWiseReportsController.dow
-nloadSignedBranchWiseReports
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/controllers/BranchWiseReports
-Controller.java:132
-URL: null
-129  }
-130 
-131  @PostMapping("/downloadSignedBranchWiseReports")
-132  public ResponseEntity<Map<String, Object>> downloadSignedBranchWiseReports(@RequestBody 
-Map<String, Object> map) {
-133  ResponseVO<Map<String, Object>> responseVo = new ResponseVO<>();
-134  Map<String, Object> zipMap = new HashMap<>();
-135  Map<String, Object> userMap = (Map<String, Object>) map.get("user");
-Sink Details
-Sink: com.lfar.LfarLHOManagerServiceApi.repositories.LfarReportsRepository.getAllBranchesForLfarWithRo()
-Enclosing Method: downloadSignedBranchWiseReportsLfar()
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/services/BranchWiseServiceImpl.java:282
-Taint Flags: PRIMARY_KEY, WEB, XSS
-279  branchCodes = lfarReportsRepository.getAllBranchesForLfar(circleCode, selectedDate, reportMasterId);
-280  } else {
-281  branchCodes = lfarReportsRepository.getAllBranchesForLfarWithRo(circleCode, selectedDate,
-282  reportMasterId, roCode);
-283  }
-284 
-285  if (data.get("downloadType").toString().equalsIgnoreCase("compliance")) {
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-BranchWiseServiceImpl.java, line 279 (Access Control: Database) High
-Issue Details
-Kingdom: Security Features
-Scan Engine: SCA (Data Flow)
-Source Details
-Source: downloadSignedLFARReports(0)
-From: com.lfar.LfarLHOManagerServiceApi.controllers.BranchWiseReportsController.dow
-nloadSignedLFARReports
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/controllers/BranchWiseReports
-Controller.java:171
-URL: null
-168  }
-Nov 14, 2026, 8:06 PM
-© Copyright [2008-2026] Micro Focus or one of its affiliates.
-20
-Access Control: Database High
-URL: null
-src/main/java/com/lfar/LfarLHOManagerServiceApi/services/
-BranchWiseServiceImpl.java, line 279 (Access Control: Database) High
-169 
-170  @PostMapping("/downloadSignedLFARReports")
-171  public ResponseEntity<Map<String, Object>> downloadSignedLFARReports(@RequestBody Map<String, 
-Object> map)
-172  throws IOException {
-173 
-174  log.info("entering sownload ");
-Sink Details
-Sink: com.lfar.LfarLHOManagerServiceApi.repositories.LfarReportsRepository.getAllBranchesForLfar()
-Enclosing Method: downloadSignedBranchWiseReportsLfar()
-File: src/main/java/com/lfar/LfarLHOManagerServiceApi/services/BranchWiseServiceImpl.java:279
-Taint Flags: PRIMARY_KEY, WEB, XSS
-276  SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
-277  if (roCode.isEmpty() || roCode.equals("420")) {
-278 
-279  branchCodes = lfarReportsRepository.getAllBranchesForLfar(circleCode, selectedDate, reportMasterId);
-280  } else {
-281  branchCodes = lfarReportsRepository.getAllBranchesForLfarWithRo(circleCode, selectedDate,
-282  reportMasterId, roCode);
